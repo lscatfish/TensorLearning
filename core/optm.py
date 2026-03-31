@@ -14,6 +14,7 @@ import abc
 from collections import deque
 
 from core.base import Data, Operation, Placeholder, runtime, Variable, Node
+from core.constant import EPSILON
 
 
 def _backwards_(op_node: Operation) -> Dict[Operation | Node | Variable, float]:
@@ -128,11 +129,72 @@ class SGD(Optimizer):
         return grad_table
 
 
+class Momentum(Optimizer):
+    def __init__(self, learning_rate: float = 0.001, gamma = 0.7):
+        super().__init__(learning_rate)
+        # save gradient of each node
+        self.node2v = {}
+        self.gamma = gamma
+
+    def backward(self, loss_node: Operation):
+        lr = self.learning_rate
+        grad_table = _backwards_(op_node = loss_node)
+        for node in grad_table:
+            if isinstance(node, Variable):
+                grad = grad_table[node]
+                if node not in self.node2v:
+                    self.node2v[node] = lr * grad
+                else:
+                    self.node2v[node] = self.gamma * self.node2v[node] + lr * grad
+                node.data -= self.node2v[node]
+
+        runtime.grad_table = grad_table
+        return grad_table
+
+
+class Adam(Optimizer):
+    def __init__(self, learning_rate: float = 0.001, beta1 = 0.9, beta2 = 0.999):
+        super().__init__(learning_rate)
+        self.beta1 = beta1
+        self.beta2 = beta2
+
+        self.prod_beta1 = 1
+        self.prod_beta2 = 1
+        self.node2m = {}  # history value
+        self.node2v = {}  # accumulate value
+
+    def backward(self, loss_node: Operation):
+        lr = self.learning_rate
+        grad_table = _backwards_(op_node = loss_node)
+        for node in grad_table:
+            if isinstance(node, Variable):
+                grad = grad_table[node]
+                if node not in self.node2m:
+                    self.node2m[node] = (1 - self.beta1) * grad
+                else:
+                    self.node2m[node] = self.beta1 * self.node2m[node] + (1 - self.beta1) * grad
+
+                if node not in self.node2v:
+                    self.node2v[node] = (1 - self.beta2) * grad * grad
+                else:
+                    self.node2v[node] = self.beta2 * self.node2v[node] + (1 - self.beta2) * grad * grad
+
+                self.prod_beta1 *= self.beta1
+                self.prod_beta2 *= self.beta2
+                m_hat = self.node2m[node] / (1 - self.prod_beta1)
+                v_hat = self.node2v[node] / (1 - self.prod_beta2)
+
+                node.data -= lr * m_hat / (np.sqrt(v_hat + EPSILON))
+
+        runtime.grad_table = grad_table
+        return grad_table
+
+
 # 一些优化器
 optimizers = {
-    "SGD": SGD,
-    # "Momentum" : Momentum,    # 动量优化器
+    "SGD"     : SGD,
+    "Momentum": Momentum,  # 动量优化器
     # "AdaGrad" : AdaGrad,      # 自适应梯度优化器
     # "RMSProp" : RMSProp,      # RMSProp优化器
-    # "Adam" : Adam             # Adam优化器
+    "Adam"    : Adam  # Adam优化器
 }

@@ -45,7 +45,7 @@ out2 = net.Linear(5, 2, activate_func = "softmax",init = 'randn')(out1)
 
 loss = measure.CrossEntropy(reduction = "mean")(predict = out2, label = Y)
 session = Session()
-optimizer = optm.SGD(learning_rate = 0.02)
+optimizer = optm.Adam(learning_rate = 0.07)#这个优化器比sgd随机梯度下降好多了
 
 losses = []
 acces = []
