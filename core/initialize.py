@@ -2,6 +2,7 @@
 """初始化模型参数"""
 
 from typing import Tuple
+from xml.sax.xmlreader import InputSource
 import numpy as np
 from core.constant import EPSILON
 from core.base import runtime
@@ -38,3 +39,14 @@ def he_normal_init(shape:Tuple[int,int,...],input_size=None)->np.ndarray:
 		0,
 		np.sqrt(2/input_size+EPSILON),
 		shape)
+@runtime.init_func('he_uniform')
+def he_uniform_init(shape:Tuple[int,int,...],input_size=None)->np.ndarray:
+	if input_size is None:
+		input_size=shape[0]
+	return np.random.uniform(
+		-np.sqrt(6/input_size+EPSILON),
+		-np.sqrt(6/input_size+EPSILON),
+		shape)
+if __name__=="__main__":
+	init=normal_init((10,10))
+	print(init)
