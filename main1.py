@@ -40,12 +40,12 @@ label = numpy_one_hot(train_Y)
 X = Placeholder()
 Y = Placeholder()
 
-out1 = net.Linear(2, 5, activate_func = "relu",init = 'randn')(X)
-out2 = net.Linear(5, 2, activate_func = "softmax",init = 'randn')(out1)
+out1 = net.Linear(2, 5, activate_func = "relu", init = 'randn')(X)
+out2 = net.Linear(5, 2, activate_func = "softmax", init = 'randn')(out1)
 
 loss = measure.CrossEntropy(reduction = "mean")(predict = out2, label = Y)
 session = Session()
-optimizer = optm.Adam(learning_rate = 0.07)#这个优化器比sgd随机梯度下降好多了
+optimizer = optm.Adam(learning_rate = 0.07)  # 这个优化器比sgd随机梯度下降好多了
 
 losses = []
 acces = []
@@ -59,7 +59,6 @@ for epoch in range(50):
     losses.append(loss.numpy)
     acces.append(acc)
     optimizer.zero_grad()
-
 
 # plt.style.use("gadfly")
 plt.plot(losses, label = "loss")
