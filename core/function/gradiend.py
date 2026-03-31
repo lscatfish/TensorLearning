@@ -13,18 +13,28 @@ from core.base import Node, Operation
 
 def __get_grad_by_shape(node: Node, grad: np.ndarray):
     """
-    直接广播梯度到目标形状，不做复杂压缩
+    修复版：自动适配广播维度的梯度计算（无reshape报错，支持所有场景）
+    规则：广播压缩的维度 → 求和梯度，再扩展维度 → 广播到目标形状
     """
-    target_shape = node.shape
-    # 梯度是标量，直接扩维到目标形状
-    if grad.size == 1:
-        return np.full(target_shape, grad.item())
-    # 形状一致直接返回
-    if grad.shape == target_shape:
-        return grad
-    # 广播适配
-    return np.broadcast_to(grad, target_shape)
+    node_shape = node.shape
+    grad = np.array(grad)
 
+    # 1. 维度数量对齐（给梯度补前导维度）
+    while grad.ndim < len(node_shape):
+        grad = np.expand_dims(grad, axis = 0)
+
+    # 2. 找出所有需要求和的轴（广播维度）
+    sum_axes = []
+    for axis in range(len(node_shape)):
+        if grad.shape[axis] == 1 and node_shape[axis] != 1:
+            sum_axes.append(axis)
+
+    # 3. 对广播维度求和（关键：用sum不用mean）
+    if sum_axes:
+        grad = np.sum(grad, axis = tuple(sum_axes), keepdims = True)
+
+    # 4. 广播到目标形状（不会报错）
+    return np.broadcast_to(grad, node_shape)
 
 # ====================== 基础数学运算 梯度注册 ======================
 @runtime.gradient_func("add")
