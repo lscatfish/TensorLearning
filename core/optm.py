@@ -2,11 +2,10 @@
 # 优化器
 
 
-from collections import deque
 import numpy as np
 import abc
-
-from core.base import Data, Operation, Placeholder, runtime
+from collections import deque
+from core.base import Data, Operation, Placeholder, runtime, Variable
 
 
 def backwards(op_node: Operation):
@@ -37,17 +36,43 @@ def backwards(op_node: Operation):
                     cur_node_in_next_node_index = next_node.input_nodes.index(cur_node)
                     grad_table[cur_node] += grad_loss_wrt_cur_node[cur_node_in_next_node_index]
         if isinstance(cur_node, Operation):
-            # TODO:continue
-            pass
+            for input_node in cur_node.input_nodes:
+                if input_node not in visit_nodes:  # only add nodes which haven't been updated/visited yet
+                    visit_nodes.add(input_node)
+                    queue.append(input_node)
+        return grad_table
 
 
 class Optimizer(abc.ABC):
     def __init__(self, lr_rate: float = 1e-3):
-        self.lr_rate = lr_rate
+        self.learning_rate = lr_rate
 
-    @abc.abstactmethod
-    def minimize(self, loss_node: Operation): ...
+    @abc.abstractmethod
+    def minimize(self, loss_node: Operation):
+        ...
 
 
-def SGD(Optimizer):
-    pass
+class SGD(Optimizer):
+    def __init__(self, learning_rate: float = 1e-3):
+        super().__init__(lr_rate = learning_rate)
+
+    def minimize(self, loss_node: Operation):
+        lr = self.learning_rate
+        grad_table = backwards(op_node = loss_node)
+        for node in grad_table:
+            if isinstance(node, Variable):
+                grad = grad_table[node]
+                node.data -= lr * grad
+
+        runtime.grad_table = grad_table
+        return grad_table
+
+
+# 一些优化器
+optimizers = {
+    "SGD": SGD,
+    # "Momentum" : Momentum,
+    # "AdaGrad" : AdaGrad,
+    # "RMSProp" : RMSProp,
+    # "Adan" : Adam
+}
