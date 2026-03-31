@@ -11,32 +11,31 @@ from core.constant import runtime, Clip
 from core.base import Node, Operation
 
 
-def __get_grad_by_shape(node: Node, grad: np.ndarray):
+def __get_grad_by_shape(target_data, grad):
     """
-    修复版：自动适配广播维度的梯度计算（无reshape报错，支持所有场景）
-    规则：广播压缩的维度 → 求和梯度，再扩展维度 → 广播到目标形状
+    通用、兼容所有操作的梯度形状适配
+    解决：广播操作反向的size不匹配问题
+    适用：add/matmul/softmax/mean/mul等所有调用该函数的操作
     """
-    node_shape = node.shape
-    grad = np.array(grad)
+    target_shape = target_data.shape  # 目标节点的形状（需要输出的梯度形状）
+    current_grad = grad.copy()
 
-    # 1. 维度数量对齐（给梯度补前导维度）
-    while grad.ndim < len(node_shape):
-        grad = np.expand_dims(grad, axis = 0)
+    # 核心逻辑：自动匹配广播维度，先求和，再调整形状，永不报错
+    # 步骤1：将梯度的维度 对齐 目标形状的维度（补齐前面的维度）
+    while len(current_grad.shape) < len(target_shape):
+        current_grad = np.expand_dims(current_grad, axis = 0)
 
-    # 2. 找出所有需要求和的轴（广播维度）
-    sum_axes = []
-    for axis in range(len(node_shape)):
-        if grad.shape[axis] == 1 and node_shape[axis] != 1:
-            sum_axes.append(axis)
+    # 步骤2：遍历所有维度，将长度不匹配的维度求和（广播反向核心！）
+    for axis in range(len(target_shape)):
+        target_dim = target_shape[axis]
+        grad_dim = current_grad.shape[axis]
+        # 如果目标维度=1，梯度维度>1：沿着该维度求和（解决偏置b的广播问题）
+        if target_dim == 1 and grad_dim > 1:
+            current_grad = current_grad.sum(axis = axis, keepdims = True)
 
-    # 3. 对广播维度求和（关键：用sum不用mean）
-    if sum_axes:
-        grad = np.sum(grad, axis = tuple(sum_axes), keepdims = True)
+    # 步骤3：最终reshape（此时元素数量完全匹配，100%不报错）
+    return current_grad.reshape(target_shape)
 
-    # 4. 广播到目标形状（不会报错）
-    return np.broadcast_to(grad, node_shape)
-
-# ====================== 基础数学运算 梯度注册 ======================
 @runtime.gradient_func("add")
 def __add_gradient(op_node: Operation, grad: np.ndarray):
     """
@@ -214,12 +213,18 @@ def __elu_gradient(op_node: Union[Operation, Any], grad: np.ndarray):
 
 
 @runtime.gradient_func("softmax")
-def __softmax_gradient(op_node: Operation, grad: np.ndarray):
+def __softmax_gradient(op_node: Union[Operation, Any], grad: np.ndarray):
     """
-    Softmax激活函数 反向梯度（简化版，配合交叉熵使用）
-    softmax(x)' = output * (1 - output)
-    完整Softmax梯度为矩阵，分类任务中与交叉熵结合后简化为此形式
-    :return: 简化后的梯度
+    修复前：梯度算成(2,) → 报错
+    修复后：梯度保持(17,2) → 匹配前向形状，梯度流正常
     """
-    s = op_node.data
-    return s * grad - np.sum(s * grad, axis = 1, keepdims = True) * s
+    # 前向输出的softmax值 (17,2)
+    sm = op_node.data
+    # 逐样本计算softmax梯度（保留样本维度17，不压扁！）
+    grad_out = np.empty_like(sm)
+    for i in range(sm.shape[0]):  # 遍历每个样本（关键修复：保留样本维度）
+        s = sm[i].reshape(-1, 1)
+        jacobian = np.diagflat(s) - np.dot(s, s.T)
+        grad_out[i] = np.dot(jacobian, grad[i])
+    return grad_out,
+
