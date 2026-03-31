@@ -16,3 +16,12 @@ class Clip:
     EXP_RPECISE_HIGH = 294.73
     EXP = lambda x : np.exp(np.clip(x, Clip.EXP_PRECISE_LOW, Clip.EXP_RPECISE_HIGH))
 
+
+# 定义注册器，运行时图
+class runtime:
+    activate_func = Register()
+    gradient_func = Register()
+    init_func     = Register()
+    global_calc_graph = list()
+    dnn_cnt = defaultdict(int)
+    grad_table = None
