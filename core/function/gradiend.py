@@ -13,30 +13,17 @@ from core.base import Node, Operation
 
 def __get_grad_by_shape(node: Node, grad: np.ndarray):
     """
-    核心工具：自动适配梯度形状（解决前向传播广播操作的反向梯度维度不匹配问题）
-    场景：加法/乘法等操作前向时发生广播，反向梯度需要还原为输入节点原始形状
-    :param node: 输入节点（需要匹配形状的目标）
-    :param grad: 上游回传的梯度
-    :return: 适配形状后的梯度
+    直接广播梯度到目标形状，不做复杂压缩
     """
-    # 获取节点原始形状和梯度形状
-    node_shape, grad_shape = node.shape, grad.shape
-    # 形状一致，直接返回梯度
-    if node_shape == grad_shape:
+    target_shape = node.shape
+    # 梯度是标量，直接扩维到目标形状
+    if grad.size == 1:
+        return np.full(target_shape, grad.item())
+    # 形状一致直接返回
+    if grad.shape == target_shape:
         return grad
-    # 计算需要压缩的维度（广播维度）
-    squeeze_axes = []
-    # 遍历梯度的所有维度，找出和目标形状不匹配的轴
-    for g_axis, n_axis in zip(range(len(grad_shape)), range(len(node_shape))):
-        if grad_shape[g_axis] != node_shape[n_axis]:
-            squeeze_axes.append(g_axis)
-    # 处理梯度维度比目标多的情况
-    if len(grad_shape) > len(node_shape):
-        squeeze_axes.extend(range(len(node_shape), len(grad_shape)))
-    # 对广播维度求和（保持梯度数值正确，不能用mean！）
-    grad_squeezed = np.sum(grad, axis = tuple(squeeze_axes))
-    # 重塑为目标形状
-    return grad_squeezed.reshape(node_shape)
+    # 广播适配
+    return np.broadcast_to(grad, target_shape)
 
 
 # ====================== 基础数学运算 梯度注册 ======================
