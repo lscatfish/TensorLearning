@@ -86,7 +86,11 @@ class Optimizer(abc.ABC):
         核心逻辑：计算梯度 2 更新可训练参数
         :param loss_node: 损失函数节点
         """
-        ...
+
+    def zero_grad(self):
+        """清除梯度"""
+        if hasattr(runtime, 'grad_table'):
+            runtime.grad_table = {}
 
 
 class SGD(Optimizer):
