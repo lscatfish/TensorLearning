@@ -82,7 +82,7 @@ class Optimizer(abc.ABC):
         self.learning_rate = lr_rate
 
     @abc.abstractmethod
-    def backward(self, loss_node: Operation):
+    def backward(self, loss_node: Operation | Node):
         """
         反向传播, 最小化损失函数，子类必须实现
         计算梯度 -> 更新可训练参数
@@ -163,7 +163,7 @@ class Adam(Optimizer):
         self.node2m = {}  # history value
         self.node2v = {}  # accumulate value
 
-    def backward(self, loss_node: Operation):
+    def backward(self, loss_node: Operation | Node):
         lr = self.learning_rate
         grad_table = _backwards_(op_node = loss_node)
         for node in grad_table:
