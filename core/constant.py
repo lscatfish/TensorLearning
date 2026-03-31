@@ -1,4 +1,4 @@
-# -*- encoding:utf-8 -*-
+﻿# -*- encoding:utf-8 -*-
 # 运行时常量
 
 
@@ -23,5 +23,5 @@ class runtime:
     gradient_func = Register()
     init_func     = Register()
     global_calc_graph = list()
-    dnn_cnt = defaultdict(int)
+    nn_cnt = defaultdict(int)
     grad_table = None
