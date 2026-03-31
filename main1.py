@@ -1,5 +1,4 @@
-# 线性连接层
-import core
+import core  # 注册函数
 from sklearn.metrics import accuracy_score
 import matplotlib.pyplot as plt
 import numpy as np
