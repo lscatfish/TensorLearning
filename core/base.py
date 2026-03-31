@@ -5,10 +5,10 @@
 """
 
 import numpy as np
-from typing import Union, List, Dict
 import abc
 from core.constant import runtime
-from core.util import back_print, fore_print
+from core.util import back_print
+from typing import Union, List, Dict
 
 
 # ====================== 预声明类 ======================
