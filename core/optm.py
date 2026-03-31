@@ -103,7 +103,7 @@ class SGD(Optimizer):
     def __init__(self, learning_rate: float = 1e-3):
         super().__init__(lr_rate = learning_rate)
 
-    def backward(self, loss_node: Operation):
+    def backward(self, loss_node: Operation | Node):
         """
         实现SGD参数更新
         调用backwards()计算所有节点梯度

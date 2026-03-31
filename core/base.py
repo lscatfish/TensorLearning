@@ -167,7 +167,7 @@ class Session(object):
     """会话
     遍历全局计算图，执行前向传播，填充所有节点的data"""
 
-    def run(self, root_op: Operation, feed_dict = None, use_batch: bool = False):
+    def run(self, root_op: Operation | Node, feed_dict = None, use_batch: bool = False):
         """
         执行单次前向传播
         :param root_op: 最终要获取结果的根操作节点
