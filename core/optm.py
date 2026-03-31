@@ -12,11 +12,9 @@ def backwards(op_node: Operation):
     """
     前馈
     """
-    grad_table = {}  # 梯度表
-    grad_table[op_node] = 1.
+    grad_table = {op_node: 1.}  # 梯度表
     visit_nodes = set()  # 已经便利的node
     queue = deque()  # 访问队列
-
     visit_nodes.add(op_node)
     queue.append(op_node)
 
@@ -37,10 +35,10 @@ def backwards(op_node: Operation):
                     grad_table[cur_node] += grad_loss_wrt_cur_node[cur_node_in_next_node_index]
         if isinstance(cur_node, Operation):
             for input_node in cur_node.input_nodes:
-                if input_node not in visit_nodes:  # only add nodes which haven't been updated/visited yet
+                if input_node not in visit_nodes:
                     visit_nodes.add(input_node)
                     queue.append(input_node)
-        return grad_table
+    return grad_table
 
 
 class Optimizer(abc.ABC):
