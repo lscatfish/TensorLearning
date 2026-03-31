@@ -35,11 +35,17 @@ class Linear(nnVarOperator):
         else:
             return np.random.randn(input_size, output_size)
 
-    def __call__(self, X: Node):
+    def __call__(self, X: Node)->Node:
         if not isinstance(X, Node):
             raise ValueError("Linear's parameter X must be a Node!")
         out = core.base.matmul(X, self.W, node_name = self.cur_name)
         out = core.base.add(out, self.b, node_name = self.cur_name)
+
+        if self.act:
+            act_func=runtime.activate_func[self.act]
+            return act_func(out,node_name = self.cur_name)
+        else:
+            return out
 
     def reset_params(self):
         W = self.get_params(self.input_features, self.output_features)
