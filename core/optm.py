@@ -12,10 +12,11 @@ from typing import Dict
 import numpy as np
 import abc
 from collections import deque
+
 from core.base import Data, Operation, Placeholder, runtime, Variable, Node
 
 
-def backwards(op_node: Operation) -> Dict[Operation | Node | Variable, float]:
+def _backwards_(op_node: Operation) -> Dict[Operation | Node | Variable, float]:
     """
     反向传播函数：从损失节点开始，遍历整个计算图，计算所有节点的梯度
     BFS 反向遍历计算图
@@ -80,10 +81,10 @@ class Optimizer(abc.ABC):
         self.learning_rate = lr_rate
 
     @abc.abstractmethod
-    def minimize(self, loss_node: Operation):
+    def backward(self, loss_node: Operation):
         """
-        抽象方法：最小化损失函数，子类必须实现
-        核心逻辑：计算梯度 2 更新可训练参数
+        反向传播, 最小化损失函数，子类必须实现
+        计算梯度 -> 更新可训练参数
         :param loss_node: 损失函数节点
         """
 
@@ -102,7 +103,7 @@ class SGD(Optimizer):
     def __init__(self, learning_rate: float = 1e-3):
         super().__init__(lr_rate = learning_rate)
 
-    def minimize(self, loss_node: Operation):
+    def backward(self, loss_node: Operation):
         """
         实现SGD参数更新
         调用backwards()计算所有节点梯度
@@ -111,7 +112,7 @@ class SGD(Optimizer):
         """
         lr = self.learning_rate
         # 反向传播：获取所有节点的梯度
-        grad_table = backwards(op_node = loss_node)
+        grad_table = _backwards_(op_node = loss_node)
 
         # 遍历梯度表，仅更新可训练变量(Variable)
         for node in grad_table:
