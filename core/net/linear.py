@@ -7,8 +7,7 @@
 """
 import numpy as np
 import core.base
-import core
-from core.base import Node, Variable, nnVarOperator
+from core.base import Node, Variable, nnVarOperator, Placeholder
 from core.util import back_print
 from core.constant import runtime
 
@@ -73,7 +72,7 @@ class Linear(nnVarOperator):
         :param X: 输入节点（必须是计算图Node类型）
         :return: 层输出节点
         """
-        if not isinstance(X, Node):  # 输入类型校验：必须是框架的Node节点
+        if not isinstance(X, Node | Placeholder):  # 输入类型校验：必须是框架的Node节点
             raise ValueError("Linear's parameter X must be a Node!")
         out = core.base.matmul(X, self.W, node_name = self.cur_name)  # 矩阵乘法 X @ W （线性变换核心）
         out = core.base.add(out, self.b, node_name = self.cur_name)  # 加上偏置项 out = X@W + b

@@ -24,16 +24,19 @@ def __get_grad_by_shape(node: Node, grad: np.ndarray):
     # 形状一致，直接返回梯度
     if node_shape == grad_shape:
         return grad
-    # 形状不一致：找到不匹配的维度，求均值压缩维度后reshape
-    else:
-        axis1 = 0
-        # 遍历维度，定位不匹配的轴
-        for axis, _ in enumerate(grad_shape):
-            if grad_shape[axis] != node_shape[axis]:
-                axis1 = axis
-                break
-        # 对不匹配轴求均值，重塑为节点原始形状
-        return grad.mean(axis = axis1).reshape(node_shape)
+    # 计算需要压缩的维度（广播维度）
+    squeeze_axes = []
+    # 遍历梯度的所有维度，找出和目标形状不匹配的轴
+    for g_axis, n_axis in zip(range(len(grad_shape)), range(len(node_shape))):
+        if grad_shape[g_axis] != node_shape[n_axis]:
+            squeeze_axes.append(g_axis)
+    # 处理梯度维度比目标多的情况
+    if len(grad_shape) > len(node_shape):
+        squeeze_axes.extend(range(len(node_shape), len(grad_shape)))
+    # 对广播维度求和（保持梯度数值正确，不能用mean！）
+    grad_squeezed = np.sum(grad, axis = tuple(squeeze_axes))
+    # 重塑为目标形状
+    return grad_squeezed.reshape(node_shape)
 
 
 # ====================== 基础数学运算 梯度注册 ======================
@@ -221,5 +224,5 @@ def __softmax_gradient(op_node: Operation, grad: np.ndarray):
     完整Softmax梯度为矩阵，分类任务中与交叉熵结合后简化为此形式
     :return: 简化后的梯度
     """
-    f = op_node.data
-    return f * (1 - f)
+    s = op_node.data
+    return s * grad - np.sum(s * grad, axis = 1, keepdims = True) * s

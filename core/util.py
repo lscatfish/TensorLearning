@@ -87,7 +87,7 @@ class Register(MutableMapping):
         return self.__data.items()
 
 
-# r = Register()
+r = Register()
 
 
 def back_print(*args, color: str = None) -> None:

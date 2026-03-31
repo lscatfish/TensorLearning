@@ -63,12 +63,10 @@ class elu(Operation):
 
 @runtime.activate_func("softmax")
 class softmax(Operation):
-    def __init__(self, x: Node, axis: int = None, node_name: str = ""):
+    def __init__(self, x: Node, node_name: str = ""):
         super().__init__(input_nodes = [x], node_name = node_name)
-        self.axis = axis
 
     def compute(self, x_v: np.ndarray):
-        ex = np.exp(x_v)
-        reduce_shape = list(x_v.shape)
-        reduce_shape[self.axis] = 1
-        return ex / np.sum(ex, axis = self.axis).reshape(reduce_shape)
+        # 🔥 修复：按行计算 Softmax（axis=1，每个样本独立归一化）
+        exp_x = np.exp(x_v - np.max(x_v, axis = 1, keepdims = True))  # 减max防止溢出
+        return exp_x / np.sum(exp_x, axis = 1, keepdims = True)  # 按行求和

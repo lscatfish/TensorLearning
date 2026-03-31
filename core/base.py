@@ -33,10 +33,6 @@ class matmul: ...
 class elementwise_pow: ...
 
 
-# 输入占位：运行时通过feed_dict传入数据，无默认值
-class Placeholder(Node): ...
-
-
 class Node(abc.ABC):
     """核心节点基类
     所有计算节点的抽象父类
@@ -161,6 +157,10 @@ class Variable(Node):
     def __init__(self, init_value: Union[np.ndarray, List] = None, node_name: str = ""):
         super().__init__(node_name = node_name)
         self.data = init_value  # 初始值，后续可更新
+
+
+# 输入占位：运行时通过feed_dict传入数据，无默认值
+class Placeholder(Node): ...
 
 
 class Session(object):
