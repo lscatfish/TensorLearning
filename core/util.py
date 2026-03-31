@@ -1,5 +1,5 @@
 # -*- encoding:utf-8 -*-
-# 注册程序，用于注册基础运算
+# 用于注册基础运算
 
 from collections.abc import MutableMapping
 from typing import Iterator, TypeVar
