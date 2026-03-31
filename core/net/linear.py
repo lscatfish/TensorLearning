@@ -9,15 +9,22 @@ from core.constant import runtime
 
 
 class Linear(nnVarOperator):
-    def __init__(self, input_features: int, output_features, bias: bool = True, activate_func: str = None, init: str = 'randn'):
+    def __init__(self,
+                 input_features: int,
+                 output_features: int,
+                 bias: bool = True,
+                 activate_func: str = None, init: str = 'randn'):
         super().__init__()
         self.input_features = input_features
         self.output_features = output_features
         self.bias = bias
         if activate_func and activate_func not in runtime.activate_func:
-            raise ValueError(f"input activate function '{activate_func}' is not in registered activate function list:{list(runtime.activate_func.keys())}")
+            raise ValueError(
+                f"input activate function '{activate_func}' is not in registered activate function "
+                f"list:{list(runtime.activate_func.keys())}")
         if init and init not in runtime.init_func:
-            raise ValueError(f"init not in registered init methods! Avaliable methods are {list(runtime.init_func.keys())}")
+            raise ValueError(f"init not in registered init methods! "
+                             f"Avaliable methods are {list(runtime.init_func.keys())}")
         self.init = init
 
         W = self.get_params(self.input_features, self.output_features)
@@ -29,21 +36,21 @@ class Linear(nnVarOperator):
 
         self.act = activate_func
 
-    def get_params(self, input_size, output_size) -> np.ndarray:
+    def get_params(self, input_size: int, output_size: int) -> np.ndarray:
         if self.init:
             return runtime.init_func[self.init]((input_size, output_size))
         else:
             return np.random.randn(input_size, output_size)
 
-    def __call__(self, X: Node)->Node:
+    def __call__(self, X: Node) -> Node:
         if not isinstance(X, Node):
             raise ValueError("Linear's parameter X must be a Node!")
         out = core.base.matmul(X, self.W, node_name = self.cur_name)
         out = core.base.add(out, self.b, node_name = self.cur_name)
 
         if self.act:
-            act_func=runtime.activate_func[self.act]
-            return act_func(out,node_name = self.cur_name)
+            act_func = runtime.activate_func[self.act]
+            return act_func(out, node_name = self.cur_name)
         else:
             return out
 
