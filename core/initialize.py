@@ -11,6 +11,9 @@ from core.base import runtime
 @runtime.init_func('normal')
 def normal_init(shape:Tuple,mean=1,std=0.01)->np.ndarray:
 	return np.random.normal(mean,std,shape)
+@runtime.init_func('randn')
+def randn_init(shape:Tuple)->np.ndarray:
+	return np.random.randn(shape)
 @runtime.init_func('uniform')
 def uniform_init(shape:Tuple[int,int,...],input_size=None,output_size=None)->np.ndarray:
 	if input_size is None:
