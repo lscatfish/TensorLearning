@@ -10,6 +10,7 @@ from core.base import Placeholder, Session
 from core.function import measure
 from core.util import numpy_one_hot
 
+
 raw_data = np.asarray([
     # 密度  含糖率  好瓜
     [0.697, 0.460, 1],
@@ -30,6 +31,7 @@ raw_data = np.asarray([
     [0.593, 0.042, 0],
     [0.719, 0.103, 0],
 ])
+"""这个数据不是很好，最后训练集的准确率应该在0.75左右"""
 
 train_X = raw_data[:, :-1].copy()
 train_Y = np.astype(raw_data[:, -1], np.int32)
@@ -40,12 +42,17 @@ label = numpy_one_hot(train_Y)
 X = Placeholder()
 Y = Placeholder()
 
+"""
+二分类，双特征
+input(2) -> linear(2,5) -> Relu -> linear(5,2) -> Softmax -> output_p(2)
+"""
+# TODO :实际上，这里activate_func应该设计成回调函数，或者用net包装
 out1 = net.Linear(2, 5, activate_func = "relu", init = 'randn')(X)
 out2 = net.Linear(5, 2, activate_func = "softmax", init = 'randn')(out1)
 
 loss = measure.CrossEntropy(reduction = "mean")(predict = out2, label = Y)
 session = Session()
-optimizer = optm.Adam(learning_rate = 0.07)  # 这个优化器比sgd随机梯度下降好多了
+optimizer = optm.Adam(learning_rate = 0.1)  # 这个优化器比sgd随机梯度下降好多了
 
 losses = []
 acces = []
