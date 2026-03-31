@@ -4,6 +4,7 @@ import numpy as np
 import core.base
 import core
 from core.base import Node,Variable,nnVarOperator
+import core.base
 from core.util import back_print
 from core.constant import runtime
 
