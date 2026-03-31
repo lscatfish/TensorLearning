@@ -2,7 +2,6 @@
 """初始化模型参数"""
 
 from typing import Tuple
-from xml.sax.xmlreader import InputSource
 import numpy as np
 from core.constant import EPSILON
 from core.base import runtime

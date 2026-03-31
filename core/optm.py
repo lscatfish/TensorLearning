@@ -1,14 +1,14 @@
 ﻿# -*- encoding:utf-8 -*-
 # 优化器
-
+from typing import Dict
 
 import numpy as np
 import abc
 from collections import deque
-from core.base import Data, Operation, Placeholder, runtime, Variable
+from core.base import Data, Operation, Placeholder, runtime, Variable, Node
 
 
-def backwards(op_node: Operation):
+def backwards(op_node: Operation) -> Dict[Operation | Node | Variable, float]:
     """
     前馈
     """
