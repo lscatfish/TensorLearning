@@ -2,7 +2,6 @@
 # 优化器
 
 
-from calendar import c
 from collections import deque
 import numpy as np
 import abc
@@ -42,7 +41,7 @@ def backwards(op_node:Operation):
 
 
 
-def Optimizer(abc.ABC ):
+class Optimizer(abc.ABC ):
     def __init__(self,lr_rate:float=1e-3):
         self.lr_rate=lr_rate
     @abc.abstactmethod
