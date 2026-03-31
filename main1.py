@@ -40,12 +40,12 @@ label = numpy_one_hot(train_Y)
 X = Placeholder()
 Y = Placeholder()
 
-out1 = net.Linear(2, 7, activate_func = "relu",init = 'randn')(X)
-out2 = net.Linear(7, 2, activate_func = "softmax",init = 'randn')(out1)
+out1 = net.Linear(2, 5, activate_func = "relu",init = 'randn')(X)
+out2 = net.Linear(5, 2, activate_func = "softmax",init = 'randn')(out1)
 
 loss = measure.CrossEntropy(reduction = "mean")(predict = out2, label = Y)
 session = Session()
-optimizer = optm.SGD(learning_rate = 0.01)
+optimizer = optm.SGD(learning_rate = 0.02)
 
 losses = []
 acces = []
