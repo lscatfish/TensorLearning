@@ -1,5 +1,6 @@
 # -*- encoding:utf-8 -*-
 # 注册梯度计算模块，必须是回调函数
+
 import numpy as np
 from typing import Any, Union
 from core.constant import runtime, Clip

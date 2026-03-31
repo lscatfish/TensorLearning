@@ -125,18 +125,24 @@ class Operation(Node, abc.ABC):
     @abc.abstractmethod
     def compute(self, *args):
         """强制子类实现计算逻辑"""
-class nnOperator(abc.ABC)   :
+
+
+class nnOperator(abc.ABC):
     def __init__(self):
-        self.cur_name=self.__class__.__name__+'_'+str(runtime.nn_cnt[self.__class__.__name__])
-        runtime.nn_cnt[self.__class__.__name__]+=1
+        self.cur_name = self.__class__.__name__ + '_' + str(runtime.nn_cnt[self.__class__.__name__])
+        runtime.nn_cnt[self.__class__.__name__] += 1
+
     @abc.abstractmethod
-    def __call__(self)->Node:...
+    def __call__(self, *args, **kwargs) -> Node: ...
+
 
 class nnVarOperator(nnOperator):
     @abc.abstractmethod
-    def reset_params(self)->None:...
+    def reset_params(self) -> None: ...
+
     @abc.abstractmethod
-    def get_params(self,*args,**kwargs)->Node:...
+    def get_params(self, *args, **kwargs) -> Node: ...
+
 
 class Data(Node):
     """常量节点, 存储固定数据，不可修改"""
