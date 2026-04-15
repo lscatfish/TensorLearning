@@ -59,10 +59,11 @@ class MNIST_Split_Dataset(Dataset):
         return img, label
 
 
-# 2D 卷积化自注意力（ConvAttn2D）→ 适配图像 [B, C, H, W]
+# 卷积化自注意力（ConvAttn2D [B, C, H, W]
+@torch.compile()
 class ConvAttn2D(nn.Module):
     """
-    二维卷积化自注意力（专为 MNIST 图像设计）
+    二维卷积化自注意力
     输入维度: [B, C, H, W]  批量, 通道, 高度, 宽度
     输出维度: [B, C, H, W]
     """
@@ -153,7 +154,8 @@ class ConvAttn2D(nn.Module):
         return out
 
 
-# MNIST 手写数字分类主网络
+# 分类主网络
+@torch.compile()
 class MNIST_ConvAttnNet(nn.Module):
     def __init__(self, num_classes = 10):
         super().__init__()
@@ -197,7 +199,7 @@ class MNIST_ConvAttnNet(nn.Module):
 
 
 if __name__ == "__main__":
-    BATCH_SIZE = 32
+    BATCH_SIZE = 256
     EPOCHS = 10
     LR = 1e-4
     DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
