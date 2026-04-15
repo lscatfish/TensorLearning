@@ -6,6 +6,8 @@ from torch.utils.data import Dataset, DataLoader
 from torchvision import transforms
 import torch.nn.functional as F
 
+torch.set_float32_matmul_precision('high')
+
 
 class MNIST_Split_Dataset(Dataset):
     def __init__(self, img_root_dir, train_mode = True, transform = None):
@@ -214,8 +216,10 @@ if __name__ == "__main__":
     train_dataset = MNIST_Split_Dataset(IMG_FOLDER, train_mode = True, transform = transform)
     test_dataset = MNIST_Split_Dataset(IMG_FOLDER, train_mode = False, transform = transform)
 
-    train_loader = DataLoader(train_dataset, BATCH_SIZE, shuffle = True, num_workers = 1)
-    test_loader = DataLoader(test_dataset, BATCH_SIZE, shuffle = False, num_workers = 1)
+    train_loader = DataLoader(train_dataset, BATCH_SIZE,
+        shuffle = True, num_workers = 1, pin_memory = True, persistent_workers = True)
+    test_loader = DataLoader(test_dataset, BATCH_SIZE,
+        shuffle = False, num_workers = 1, pin_memory = True, persistent_workers = True)
 
     # 4. 初始化模型、损失函数、优化器
     model = MNIST_ConvAttnNet().to(DEVICE)
@@ -226,7 +230,7 @@ if __name__ == "__main__":
     # 训练循环
     print(f"训练设备: {DEVICE}")
     print(f"训练集数量: {len(train_dataset)}, 测试集数量: {len(test_dataset)}")
-
+    xxtest_acc = 9999
     for epoch in range(EPOCHS):
         # 训练
         model.train()
@@ -264,4 +268,7 @@ if __name__ == "__main__":
                 test_correct += (pred == labels).sum().item()
 
         test_acc = 100 * test_correct / test_total
+        if xxtest_acc > test_acc:
+            xxtest_acc = test_acc
+            torch.save(model.state_dict(), 'md.pth')
         print(f"Epoch [{epoch + 1}/{EPOCHS}] | 训练损失: {avg_loss:.4f} | 训练准确率: {train_acc:.2f}% | 测试准确率: {test_acc:.2f}%")
