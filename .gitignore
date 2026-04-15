@@ -7,3 +7,7 @@
 /.idea/
 /.vs/
 **/__pycache__
+**.png
+**.jpg
+**.jpeg
+/minist/mnist/MNIST

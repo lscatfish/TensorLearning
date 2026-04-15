@@ -3,7 +3,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 from mt.core import net, optm
-from mt.core import Placeholder, Session
+from mt.core.base import Placeholder, Session
 from mt.core.function import measure
 from mt.core.util import numpy_one_hot
 
