@@ -13,8 +13,8 @@ import numpy as np
 import abc
 from collections import deque
 
-from core.base import Data, Operation, Placeholder, runtime, Variable, Node
-from core.constant import EPSILON
+from mt.core.base import Data, Operation, Placeholder, runtime, Variable, Node
+from mt.core.constant import EPSILON
 
 
 def _backwards_(op_node: Operation) -> Dict[Operation | Node | Variable, float]:

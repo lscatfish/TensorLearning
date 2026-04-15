@@ -7,8 +7,8 @@
 
 from typing import Tuple
 import numpy as np
-from core.constant import EPSILON
-from core.base import runtime
+from mt.core.constant import EPSILON
+from mt.core.base import runtime
 
 
 @runtime.init_func('normal')

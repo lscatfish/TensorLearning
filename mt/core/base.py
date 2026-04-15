@@ -6,8 +6,8 @@
 
 import numpy as np
 import abc
-from core.constant import runtime
-from core.util import back_print
+from mt.core.constant import runtime
+from mt.core.util import back_print
 from typing import Union, List, Dict
 
 

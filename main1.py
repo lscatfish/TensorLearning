@@ -1,12 +1,11 @@
-import core  # 注册函数
 from sklearn.metrics import accuracy_score
 import matplotlib.pyplot as plt
 import numpy as np
 
-from core import net, optm
-from core.base import Placeholder, Session
-from core.function import measure
-from core.util import numpy_one_hot
+from mt.core import net, optm
+from mt.core import Placeholder, Session
+from mt.core.function import measure
+from mt.core.util import numpy_one_hot
 
 
 raw_data = np.asarray([

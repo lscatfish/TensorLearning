@@ -1,8 +1,8 @@
 # -*- encoding:utf-8 -*-
 # 注册激活函数计算
 
-from core.constant import runtime, Clip
-from core.base import Operation, Node
+from mt.core.constant import runtime, Clip
+from mt.core.base import Operation, Node
 import numpy as np
 
 

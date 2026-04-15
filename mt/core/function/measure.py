@@ -6,8 +6,7 @@
 均基于自定义计算图节点实现
 """
 
-import numpy as np
-from core.base import Node, nnOperator, reduce_mean, log, reduce_sum, multiply, negative
+from mt.core.base import Node, nnOperator, reduce_mean, log, reduce_sum, multiply, negative
 
 
 # ====================== 交叉熵损失（类实现） ======================

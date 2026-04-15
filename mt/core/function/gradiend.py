@@ -7,8 +7,8 @@
 """
 import numpy as np
 from typing import Any, Union
-from core.constant import runtime, Clip
-from core.base import Node, Operation
+from mt.core.constant import runtime, Clip
+from mt.core.base import Operation
 
 
 def __get_grad_by_shape(target_data, grad):

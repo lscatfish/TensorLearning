@@ -3,7 +3,7 @@
 
 
 import numpy as np
-from core.util import Register
+from mt.core.util import Register
 from collections import defaultdict
 
 EPSILON = 0.00001

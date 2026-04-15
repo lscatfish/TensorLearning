@@ -6,10 +6,9 @@
 继承自nnVarOperator：带可训练参数的神经网络算子
 """
 import numpy as np
-import core.base
-from core.base import Node, Variable, nnVarOperator, Placeholder
-from core.util import back_print
-from core.constant import runtime
+import mt.core.base
+from mt.core.base import Node, Variable, nnVarOperator, Placeholder
+from mt.core.constant import runtime
 
 
 class Linear(nnVarOperator):
@@ -74,8 +73,8 @@ class Linear(nnVarOperator):
         """
         if not isinstance(X, Node | Placeholder):  # 输入类型校验：必须是框架的Node节点
             raise ValueError("Linear's parameter X must be a Node!")
-        out = core.base.matmul(X, self.W, node_name = self.cur_name)  # 矩阵乘法 X @ W （线性变换核心）
-        out = core.base.add(out, self.b, node_name = self.cur_name)  # 加上偏置项 out = X@W + b
+        out = mt.core.base.matmul(X, self.W, node_name = self.cur_name)  # 矩阵乘法 X @ W （线性变换核心）
+        out = mt.core.base.add(out, self.b, node_name = self.cur_name)  # 加上偏置项 out = X@W + b
 
         if self.act:  # 如果指定了激活函数，执行激活
             act_func = runtime.activate_func[self.act]
