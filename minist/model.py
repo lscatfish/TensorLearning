@@ -6,7 +6,7 @@ from torch.utils.data import Dataset, DataLoader
 from torchvision import transforms
 import torch.nn.functional as F
 
-torch.set_float32_matmul_precision('high')
+torch.set_float32_matmul_precision('medium')
 
 
 class MNIST_Split_Dataset(Dataset):
@@ -168,32 +168,38 @@ class MNIST_ConvAttnNet(nn.Module):
             nn.Conv2d(1, 32, kernel_size = 3, padding = 1),
             nn.BatchNorm2d(32),
             nn.ReLU(inplace = True),
-            nn.MaxPool2d(2)  # [B,32,14,14]
+            nn.Conv2d(32, 32, 3, 2, padding = 1),  # [B,32,14,14]
+            nn.BatchNorm2d(32),
+            nn.GELU(),
         )
 
-        # 卷积注意力模块
-        self.attn_block = ConvAttn2D(
-            in_channels = 32,
-            attn_channels = 16,
-            dynamic_kernel_size = 3,
-            shared_large_kernel_size = 7  # 适配 28x28 图像，大核缩小更高效
-        )
-
+        # # 卷积注意力模块
+        # self.attn_block = ConvAttn2D(
+        #     in_channels = 32,
+        #     attn_channels = 16,
+        #     dynamic_kernel_size = 3,
+        #     shared_large_kernel_size = 7,  # 适配 28x28 图像，大核缩小更高效
+        #     use_residual = True,
+        #     use_norm = True
+        # )
         # 深层特征提取
         self.conv2 = nn.Sequential(
             nn.Conv2d(32, 64, kernel_size = 3, padding = 1),
             nn.BatchNorm2d(64),
             nn.ReLU(inplace = True),
-            nn.MaxPool2d(2)  # [B,64,7,7]
+            nn.Conv2d(64, 128, 3, 2, padding = 1),
+            nn.BatchNorm2d(128), nn.GELU(),
+            nn.Conv2d(128, 128, 3, 2, padding = 1),
+            nn.GELU(),
         )
 
         # 分类头
-        self.avg_pool = nn.AdaptiveAvgPool2d(1)  # 全局池化 [B,64,1,1]
-        self.fc = nn.Linear(64, num_classes)
+        self.avg_pool = nn.AdaptiveMaxPool2d(1)  # 全局池化 [B,64,1,1]
+        self.fc = nn.Linear(128, num_classes)
 
     def forward(self, x):
         x = self.conv1(x)
-        x = self.attn_block(x)  # 注意力增强特征
+        # x = self.attn_block(x)  # 注意力增强特征
         x = self.conv2(x)
         x = self.avg_pool(x).flatten(1)
         x = self.fc(x)
@@ -201,9 +207,9 @@ class MNIST_ConvAttnNet(nn.Module):
 
 
 if __name__ == "__main__":
-    BATCH_SIZE = 256
-    EPOCHS = 10
-    LR = 1e-4
+    BATCH_SIZE = 5000
+    EPOCHS = 30
+    LR = 1e-3
     DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     # 数据预处理（MNIST 官方标准化）
@@ -217,12 +223,13 @@ if __name__ == "__main__":
     test_dataset = MNIST_Split_Dataset(IMG_FOLDER, train_mode = False, transform = transform)
 
     train_loader = DataLoader(train_dataset, BATCH_SIZE,
-        shuffle = True, num_workers = 1, pin_memory = True, persistent_workers = True)
+        shuffle = True, num_workers = 2, pin_memory = True, persistent_workers = True, pin_memory_device = 'cuda')
     test_loader = DataLoader(test_dataset, BATCH_SIZE,
-        shuffle = False, num_workers = 1, pin_memory = True, persistent_workers = True)
+        shuffle = False, num_workers = 2, pin_memory = True, persistent_workers = True, pin_memory_device = 'cuda')
 
     # 4. 初始化模型、损失函数、优化器
     model = MNIST_ConvAttnNet().to(DEVICE)
+    # model.load_state_dict(torch.load(r'D:\code\TensorLearning\minist\md.pth', map_location = DEVICE))
     criterion = nn.CrossEntropyLoss()
     optimizer = torch.optim.AdamW(model.parameters(), lr = LR)
     sch = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max = EPOCHS)
@@ -230,7 +237,7 @@ if __name__ == "__main__":
     # 训练循环
     print(f"训练设备: {DEVICE}")
     print(f"训练集数量: {len(train_dataset)}, 测试集数量: {len(test_dataset)}")
-    xxtest_acc = 9999
+    xxtest_acc = 0.9
     for epoch in range(EPOCHS):
         # 训练
         model.train()
@@ -266,7 +273,7 @@ if __name__ == "__main__":
                 _, pred = torch.max(outputs, 1)
                 test_total += labels.size(0)
                 test_correct += (pred == labels).sum().item()
-
+        sch.step()
         test_acc = 100 * test_correct / test_total
         if xxtest_acc > test_acc:
             xxtest_acc = test_acc
