@@ -165,43 +165,28 @@ class MNIST_ConvAttnNet(nn.Module):
 
         # 浅层特征提取
         self.conv1 = nn.Sequential(
-            nn.Conv2d(1, 32, kernel_size = 3, padding = 1),
-            nn.BatchNorm2d(32),
-            nn.ReLU(inplace = True),
-            nn.Conv2d(32, 32, 3, 2, padding = 1),  # [B,32,14,14]
-            nn.BatchNorm2d(32),
-            nn.GELU(),
+            nn.Conv2d(1, 4, 1, ),
+            nn.InstanceNorm2d(4), nn.ReLU(inplace = True),
+            nn.Conv2d(4, 8, kernel_size = 3, padding = 1),
+            nn.InstanceNorm2d(8), nn.ReLU(inplace = True),
+            nn.Conv2d(8, 16, 3, 2, padding = 1),  # [B,16,14,14]
+            nn.InstanceNorm2d(16), nn.ReLU(inplace = True),
+            nn.Conv2d(16, 16, kernel_size = 3, padding = 1),
+            nn.InstanceNorm2d(16), nn.ReLU(inplace = True),
+            nn.Conv2d(16, 32, 3, 2, padding = 1),
+            nn.InstanceNorm2d(32), nn.ReLU(),  # [B,32,7,7]
+            nn.Conv2d(32, 1, 1),
+            nn.InstanceNorm2d(1), nn.ReLU(inplace = True),
         )
-
-        # # 卷积注意力模块
-        # self.attn_block = ConvAttn2D(
-        #     in_channels = 32,
-        #     attn_channels = 16,
-        #     dynamic_kernel_size = 3,
-        #     shared_large_kernel_size = 7,  # 适配 28x28 图像，大核缩小更高效
-        #     use_residual = True,
-        #     use_norm = True
-        # )
-        # 深层特征提取
-        self.conv2 = nn.Sequential(
-            nn.Conv2d(32, 64, kernel_size = 3, padding = 1),
-            nn.BatchNorm2d(64),
+        self.fc = nn.Sequential(
+            nn.Linear(49, 256),
             nn.ReLU(inplace = True),
-            nn.Conv2d(64, 128, 3, 2, padding = 1),
-            nn.BatchNorm2d(128), nn.GELU(),
-            nn.Conv2d(128, 128, 3, 2, padding = 1),
-            nn.GELU(),
+            nn.Linear(256, num_classes),
         )
-
-        # 分类头
-        self.avg_pool = nn.AdaptiveMaxPool2d(1)  # 全局池化 [B,64,1,1]
-        self.fc = nn.Linear(128, num_classes)
 
     def forward(self, x):
         x = self.conv1(x)
-        # x = self.attn_block(x)  # 注意力增强特征
-        x = self.conv2(x)
-        x = self.avg_pool(x).flatten(1)
+        x = torch.flatten(x, 1)
         x = self.fc(x)
         return x
 
@@ -223,9 +208,9 @@ if __name__ == "__main__":
     test_dataset = MNIST_Split_Dataset(IMG_FOLDER, train_mode = False, transform = transform)
 
     train_loader = DataLoader(train_dataset, BATCH_SIZE,
-        shuffle = True, num_workers = 2, pin_memory = True, persistent_workers = True, pin_memory_device = 'cuda')
+        shuffle = True, num_workers = 2, pin_memory = True, persistent_workers = True)
     test_loader = DataLoader(test_dataset, BATCH_SIZE,
-        shuffle = False, num_workers = 2, pin_memory = True, persistent_workers = True, pin_memory_device = 'cuda')
+        shuffle = False, num_workers = 2, pin_memory = True, persistent_workers = True)
 
     # 4. 初始化模型、损失函数、优化器
     model = MNIST_ConvAttnNet().to(DEVICE)
