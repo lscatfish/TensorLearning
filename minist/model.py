@@ -206,9 +206,9 @@ test_dataset = MNIST_Split_Dataset(IMG_FOLDER, train_mode = False, transform = _
 BATCH_SIZE = 5000
 
 # 4. 初始化模型、损失函数、优化器
-model = MNIST_ConvAttnNet().to(DEVICE)
 
 if __name__ == "__main__":
+    model = MNIST_ConvAttnNet().to(DEVICE)
     EPOCHS = 30
     LR = 1e-3
     train_loader = DataLoader(train_dataset, BATCH_SIZE,
