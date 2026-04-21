@@ -9,7 +9,7 @@ import torch.nn.functional as F
 torch.set_float32_matmul_precision('medium')
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-DisableCompile = True
+DisableCompile = False
 
 
 class MNIST_Split_Dataset(Dataset):
@@ -169,17 +169,17 @@ class MNIST_ConvAttnNet(nn.Module):
         # 浅层特征提取
         self.conv1 = nn.Sequential(
             nn.Conv2d(1, 4, 1, ),
-            nn.InstanceNorm2d(4), nn.ReLU(inplace = True),
+            nn.InstanceNorm2d(4, affine = True), nn.ReLU(inplace = True),
             nn.Conv2d(4, 8, kernel_size = 3, padding = 1),
-            nn.InstanceNorm2d(8), nn.ReLU(inplace = True),
+            nn.InstanceNorm2d(8, affine = True), nn.ReLU(inplace = True),
             nn.Conv2d(8, 16, 3, 2, padding = 1),  # [B,16,14,14]
-            nn.InstanceNorm2d(16), nn.ReLU(inplace = True),
+            nn.InstanceNorm2d(16, affine = True), nn.ReLU(inplace = True),
             nn.Conv2d(16, 16, kernel_size = 3, padding = 1),
-            nn.InstanceNorm2d(16), nn.ReLU(inplace = True),
+            nn.InstanceNorm2d(16, affine = True), nn.ReLU(inplace = True),
             nn.Conv2d(16, 32, 3, 2, padding = 1),
-            nn.InstanceNorm2d(32), nn.ReLU(),  # [B,32,7,7]
+            nn.InstanceNorm2d(32, affine = True), nn.ReLU(),  # [B,32,7,7]
             nn.Conv2d(32, 1, 1),
-            nn.InstanceNorm2d(1), nn.ReLU(inplace = True),
+            nn.InstanceNorm2d(1, affine = True), nn.ReLU(inplace = True),
         )
         self.fc = nn.Sequential(
             nn.Linear(49, 256),
@@ -194,11 +194,48 @@ class MNIST_ConvAttnNet(nn.Module):
         return x
 
 
+# Patch划分
+@torch.compile(disable = DisableCompile)
+class MNIST_PatchNet(nn.Module):
+    def __init__(self, num_classes = 10):
+        super().__init__()
+        # 输入: [B, 1, 28, 28] MNIST 单通道灰度图
+
+        # 浅层特征提取
+        self.conv1 = nn.Sequential(
+            nn.Conv2d(1, 8, 1, ),
+            nn.InstanceNorm2d(8, affine = True), nn.GELU(),
+
+            nn.Conv2d(8, 16, 2, 2, ),
+            nn.InstanceNorm2d(16, affine = True), nn.ReLU(inplace = True), nn.Dropout(0.1),  # [B, 16, 14, 14]
+            nn.Conv2d(16, 32, 3, 1, padding = 1, ),
+            nn.InstanceNorm2d(16, affine = True), nn.ReLU(inplace = True), nn.Dropout(0.1),  # [B, 16, 14, 14]
+            nn.Flatten(2),  # 展平到[B, 32, 196]
+
+            nn.Conv1d(32, 64, 1),
+            nn.InstanceNorm1d(64, affine = True), nn.ReLU(inplace = True), nn.Dropout(0.1),
+            nn.Conv1d(64, 5, 1),
+            nn.InstanceNorm1d(5, affine = True), nn.ReLU(inplace = True), nn.Dropout(0.1),
+            nn.Flatten(1),
+        )
+        self.fc = nn.Sequential(
+            nn.Linear(980, 512),
+            nn.ReLU(inplace = True), nn.Dropout(0.1),
+            nn.Linear(512, num_classes),
+        )
+
+    def forward(self, x):
+        x = self.conv1(x)
+        x = self.fc(x)
+        return x
+
+
 # 数据预处理（MNIST 官方标准化）
 _transform = transforms.Compose([
     transforms.ToTensor(),
     transforms.Normalize((0.1307,), (0.3081,))
 ])
+
 IMG_FOLDER = r".\mnist_jpg"
 train_dataset = MNIST_Split_Dataset(IMG_FOLDER, train_mode = True, transform = _transform)
 test_dataset = MNIST_Split_Dataset(IMG_FOLDER, train_mode = False, transform = _transform)
@@ -208,7 +245,7 @@ BATCH_SIZE = 5000
 # 4. 初始化模型、损失函数、优化器
 
 if __name__ == "__main__":
-    model = MNIST_ConvAttnNet().to(DEVICE)
+    model = MNIST_PatchNet().to(DEVICE)
     EPOCHS = 30
     LR = 1e-3
     train_loader = DataLoader(train_dataset, BATCH_SIZE,
@@ -263,5 +300,5 @@ if __name__ == "__main__":
         test_acc = 100 * test_correct / test_total
         if xxtest_acc < test_acc:
             xxtest_acc = test_acc
-            torch.save(model.state_dict(), 'md.pth')
+            torch.save(model.state_dict(), 'md_patch.pth')
         print(f"Epoch [{epoch + 1}/{EPOCHS}] | 训练损失: {avg_loss:.4f} | 训练准确率: {train_acc:.2f}% | 测试准确率: {test_acc:.2f}%")
