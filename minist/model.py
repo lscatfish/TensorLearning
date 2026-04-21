@@ -169,7 +169,7 @@ class MNIST_ConvAttnNet(nn.Module):
         # 浅层特征提取
         self.conv1 = nn.Sequential(
             nn.Conv2d(1, 4, 1, ),
-            nn.InstanceNorm2d(4, affine = True), nn.ReLU(inplace = True),
+            nn.InstanceNorm2d(4, affine = True), nn.GELU(),
             nn.Conv2d(4, 8, kernel_size = 3, padding = 1),
             nn.InstanceNorm2d(8, affine = True), nn.ReLU(inplace = True),
             nn.Conv2d(8, 16, 3, 2, padding = 1),  # [B,16,14,14]
@@ -230,6 +230,54 @@ class MNIST_PatchNet(nn.Module):
         return x
 
 
+@torch.compile(disable = DisableCompile)
+class MNIST_ResNet(nn.Module):
+    """残差链接"""
+
+    def __init__(self, num_classes = 10):
+        super().__init__()
+        # 输入: [B, 1, 28, 28] MNIST 单通道灰度图
+        self.channel_up = nn.Sequential(
+            nn.Conv2d(1, 4, 1, ),
+            nn.InstanceNorm2d(4, affine = True), nn.GELU())
+        self.down1 = nn.Sequential(
+            nn.Conv2d(4, 8, 3, 1, padding = 1),
+            nn.InstanceNorm2d(8, affine = True), nn.ReLU(inplace = True),
+            nn.Conv2d(8, 16, 3, 2, padding = 1),
+            nn.InstanceNorm2d(16, affine = True), nn.ReLU(inplace = True),
+        )  # [B, 16, 14, 14]
+        self.skip1 = nn.Conv2d(1, 16, 1, 2)
+
+        self.down2 = nn.Sequential(
+            nn.Conv2d(16, 16, 3, 1, padding = 1),
+            nn.InstanceNorm2d(16, affine = True), nn.ReLU(inplace = True),
+            nn.Conv2d(16, 32, 3, 2, padding = 1),
+            nn.InstanceNorm2d(32, affine = True), nn.ReLU(inplace = True),
+        )  # [B, 32, 7, 7]
+        self.skip2 = nn.Conv2d(16, 32, 1, 2)
+
+        self.channel_down = nn.Sequential(
+            nn.Conv2d(32, 1, 1),
+            nn.InstanceNorm2d(1, affine = True), nn.ReLU(inplace = True),
+        )  # [通道收缩]
+        self.skip3 = nn.Conv2d(32, 1, 1)
+
+        self.fc = nn.Sequential(
+            nn.Linear(49, 256),
+            nn.ReLU(inplace = True), nn.Dropout(0.1),
+            nn.Linear(256, num_classes),
+        )
+
+    def forward(self, x):
+        x_up = self.channel_up(x)
+        x1 = self.down1(x_up) + self.skip1(x)
+        x2 = self.down2(x1) + self.skip2(x1)
+        x3 = self.channel_down(x2) + self.skip3(x2)
+
+        xcc = self.fc(torch.flatten(x3, 1))
+        return xcc
+
+
 # 数据预处理（MNIST 官方标准化）
 _transform = transforms.Compose([
     transforms.ToTensor(),
@@ -242,10 +290,8 @@ test_dataset = MNIST_Split_Dataset(IMG_FOLDER, train_mode = False, transform = _
 
 BATCH_SIZE = 5000
 
-# 4. 初始化模型、损失函数、优化器
-
 if __name__ == "__main__":
-    model = MNIST_PatchNet().to(DEVICE)
+    model = MNIST_ResNet().to(DEVICE)
     EPOCHS = 30
     LR = 1e-3
     train_loader = DataLoader(train_dataset, BATCH_SIZE,
@@ -300,5 +346,5 @@ if __name__ == "__main__":
         test_acc = 100 * test_correct / test_total
         if xxtest_acc < test_acc:
             xxtest_acc = test_acc
-            torch.save(model.state_dict(), 'md_patch.pth')
+            torch.save(model.state_dict(), 'md/md.pth')
         print(f"Epoch [{epoch + 1}/{EPOCHS}] | 训练损失: {avg_loss:.4f} | 训练准确率: {train_acc:.2f}% | 测试准确率: {test_acc:.2f}%")
