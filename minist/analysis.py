@@ -178,6 +178,7 @@ def plot_acc_loss_curve():
     ax1.set_ylabel('准确率')
     for i, v in enumerate(accs):
         ax1.text(i, v + 0.01, f'{v * 100:.2f}%', ha = 'center')
+
     # 损失
     ax2.bar(x, losses, color = ['#FF9800', '#F44336'])
     ax2.set_title('模型损失对比', fontsize = 12)
