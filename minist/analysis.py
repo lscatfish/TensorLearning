@@ -23,9 +23,9 @@ NUM_CLASSES = 10
 
 def load_trained_model():
     """加载训练好的模型"""
-    model = MNIST_PatchNet().to(DEVICE)
+    model = MNIST_ConvAttnNet().to(DEVICE)
     # 加载你训练好的权重
-    model.load_state_dict(torch.load('./md_patch.pth', map_location = DEVICE))
+    model.load_state_dict(torch.load('md/md.pth', map_location = DEVICE))
     model.eval()
     return model
 
