@@ -12,6 +12,10 @@ import torch.nn.functional as F
 from minist.model import MNIST_ConvAttnNet, _transform, DEVICE, IMG_FOLDER, test_dataset, BATCH_SIZE, train_dataset
 import seaborn as sns
 
+# 设置中文字体支持
+plt.rcParams['font.sans-serif'] = ['Microsoft YaHei', 'SimHei', 'KaiTi']  # 备选字体
+plt.rcParams['axes.unicode_minus'] = False  # 解决负号显示问题
+
 NUM_CLASSES = 10
 
 
@@ -185,6 +189,7 @@ def plot_acc_loss_curve():
     plt.savefig('./准确率损失对比.png', bbox_inches = 'tight')
     plt.close()
     print("✅ 准确率损失对比图已保存：准确率损失对比.png")
+
 
 if __name__ == '__main__':
     test_loader = DataLoader(test_dataset, BATCH_SIZE, shuffle = False, num_workers = 1, pin_memory = True)
