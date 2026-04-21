@@ -178,11 +178,11 @@ class MNIST_ConvAttnNet(nn.Module):
             nn.InstanceNorm2d(16, affine = True), nn.ReLU(inplace = True),
             nn.Conv2d(16, 32, 3, 2, padding = 1),
             nn.InstanceNorm2d(32, affine = True), nn.ReLU(),  # [B,32,7,7]
-            nn.Conv2d(32, 1, 1),
-            nn.InstanceNorm2d(1, affine = True), nn.ReLU(inplace = True),
+            nn.Conv2d(32, 10, 1),
+            nn.InstanceNorm2d(10, affine = True), nn.ReLU(inplace = True),
         )
         self.fc = nn.Sequential(
-            nn.Linear(49, 256),
+            nn.Linear(490, 256),
             nn.ReLU(inplace = True),
             nn.Linear(256, num_classes),
         )
@@ -257,13 +257,13 @@ class MNIST_ResNet(nn.Module):
         self.skip2 = nn.Conv2d(16, 32, 1, 2)
 
         self.channel_down = nn.Sequential(
-            nn.Conv2d(32, 1, 1),
-            nn.InstanceNorm2d(1, affine = True), nn.ReLU(inplace = True),
+            nn.Conv2d(32, 10, 1),
+            nn.InstanceNorm2d(10, affine = True), nn.ReLU(inplace = True),
         )  # [通道收缩]
-        self.skip3 = nn.Conv2d(32, 1, 1)
+        self.skip3 = nn.Conv2d(32, 10, 1)
 
         self.fc = nn.Sequential(
-            nn.Linear(49, 256),
+            nn.Linear(490, 256),
             nn.ReLU(inplace = True), nn.Dropout(0.1),
             nn.Linear(256, num_classes),
         )
@@ -273,7 +273,6 @@ class MNIST_ResNet(nn.Module):
         x1 = self.down1(x_up) + self.skip1(x)
         x2 = self.down2(x1) + self.skip2(x1)
         x3 = self.channel_down(x2) + self.skip3(x2)
-
         xcc = self.fc(torch.flatten(x3, 1))
         return xcc
 
@@ -291,7 +290,7 @@ test_dataset = MNIST_Split_Dataset(IMG_FOLDER, train_mode = False, transform = _
 BATCH_SIZE = 5000
 
 if __name__ == "__main__":
-    model = MNIST_ResNet().to(DEVICE)
+    model = MNIST_ConvAttnNet().to(DEVICE)
     EPOCHS = 30
     LR = 1e-3
     train_loader = DataLoader(train_dataset, BATCH_SIZE,
