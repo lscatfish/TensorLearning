@@ -9,9 +9,9 @@ from sklearn.preprocessing import label_binarize
 from torch import nn
 from torch.utils.data import Dataset, DataLoader
 import torch.nn.functional as F
-from minist.model import (MNIST_ConvAttnNet, _transform, DEVICE,  IMG_FOLDER,
+from minist.model import (MNIST_ConvAttnNet, _transform, DEVICE, IMG_FOLDER,
                           test_dataset, BATCH_SIZE, train_dataset,
-    MNIST_PatchNet)
+                          MNIST_PatchNet, MNIST_ResNet)
 import seaborn as sns
 
 # 设置中文字体支持
@@ -23,9 +23,9 @@ NUM_CLASSES = 10
 
 def load_trained_model():
     """加载训练好的模型"""
-    model = MNIST_ConvAttnNet().to(DEVICE)
+    model = MNIST_ResNet().to(DEVICE)
     # 加载你训练好的权重
-    model.load_state_dict(torch.load('md/md.pth', map_location = DEVICE))
+    model.load_state_dict(torch.load('md/md_res.pth', map_location = DEVICE))
     model.eval()
     return model
 
@@ -115,7 +115,7 @@ def plot_roc_curve(y_true_bin, y_score):
     plt.plot([0, 1], [0, 1], 'k--')
     plt.xlabel('假正率 (FPR)')
     plt.ylabel('真正率 (TPR)')
-    plt.title('MNIST 模型 ROC 曲线', fontsize = 14)
+    plt.title('模型 ROC 曲线', fontsize = 14)
     plt.legend(loc = 'lower right')
     plt.tight_layout()
     plt.savefig('./ROC曲线.svg', bbox_inches = 'tight', format = "svg", transparent = False)
@@ -134,10 +134,10 @@ def plot_pr_curve(y_true_bin, y_score):
 
     plt.figure(figsize = (10, 8))
     for i in range(NUM_CLASSES):
-        plt.plot(recall[i], precision[i], label = f'类别 {i} (AUC = {pr_auc[i]:.4f})')
+        plt.plot(recall[i], precision[i], label = f'类别 {i} (AP = {pr_auc[i]:.4f})')
     plt.xlabel('召回率 (Recall)')
     plt.ylabel('精确率 (Precision)')
-    plt.title('MNIST 模型 PR 曲线', fontsize = 14)
+    plt.title('模型 PR 曲线', fontsize = 14)
     plt.legend(loc = 'lower left')
     plt.tight_layout()
     plt.savefig('./PR曲线.svg', bbox_inches = 'tight', format = "svg", transparent = False)
