@@ -11,4 +11,4 @@
 **.jpg
 **.jpeg
 /minist/mnist/MNIST
-**.pth
+#**.pth
