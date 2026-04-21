@@ -209,7 +209,7 @@ class MNIST_PatchNet(nn.Module):
             nn.Conv2d(8, 16, 2, 2, ),
             nn.InstanceNorm2d(16, affine = True), nn.ReLU(inplace = True), nn.Dropout(0.1),  # [B, 16, 14, 14]
             nn.Conv2d(16, 32, 3, 1, padding = 1, ),
-            nn.InstanceNorm2d(16, affine = True), nn.ReLU(inplace = True), nn.Dropout(0.1),  # [B, 16, 14, 14]
+            nn.InstanceNorm2d(32, affine = True), nn.ReLU(inplace = True), nn.Dropout(0.1),  # [B, 16, 14, 14]
             nn.Flatten(2),  # 展平到[B, 32, 196]
 
             nn.Conv1d(32, 64, 1),

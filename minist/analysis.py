@@ -9,7 +9,9 @@ from sklearn.preprocessing import label_binarize
 from torch import nn
 from torch.utils.data import Dataset, DataLoader
 import torch.nn.functional as F
-from minist.model import MNIST_ConvAttnNet, _transform, DEVICE, IMG_FOLDER, test_dataset, BATCH_SIZE, train_dataset
+from minist.model import (MNIST_ConvAttnNet, _transform, DEVICE,  IMG_FOLDER,
+                          test_dataset, BATCH_SIZE, train_dataset,
+    MNIST_PatchNet)
 import seaborn as sns
 
 # 设置中文字体支持
@@ -21,9 +23,9 @@ NUM_CLASSES = 10
 
 def load_trained_model():
     """加载训练好的模型"""
-    model = MNIST_ConvAttnNet().to(DEVICE)
+    model = MNIST_PatchNet().to(DEVICE)
     # 加载你训练好的权重
-    model.load_state_dict(torch.load('./md.pth', map_location = DEVICE))
+    model.load_state_dict(torch.load('./md_patch.pth', map_location = DEVICE))
     model.eval()
     return model
 
@@ -47,7 +49,7 @@ def predict_all(loader):
 
 
 def calculate_metrics(y_true, y_pred):
-    """计算论文核心评价指标"""
+    """计算核心评价指标"""
     # 总体准确率
     acc = accuracy_score(y_true, y_pred)
     # 精确率、召回率、F1（宏平均/加权平均）
@@ -58,9 +60,9 @@ def calculate_metrics(y_true, y_pred):
     # 分类报告（每类指标）
     report = classification_report(y_true, y_pred, digits = 4)
 
-    # 打印格式化指标（直接复制到论文）
+    # 打印格式化指标
     print("=" * 50)
-    print("          模型综合评价指标（论文专用）")
+    print("          模型综合评价指标")
     print("=" * 50)
     print(f"总体准确率 (Accuracy):\t{acc:.4f} ({acc * 100:.2f}%)")
     print(f"宏平均精确率 (Precision):\t{precision_macro:.4f}")
@@ -74,7 +76,7 @@ def calculate_metrics(y_true, y_pred):
 
 
 def plot_confusion_matrix(cm, classes = range(10)):
-    """绘制混淆矩阵热力图（论文必备）"""
+    """绘制混淆矩阵热力图"""
     plt.figure(figsize = (10, 8))
     sns.heatmap(cm, annot = True, fmt = 'd', cmap = 'Blues',
         xticklabels = classes, yticklabels = classes)
@@ -183,8 +185,8 @@ def plot_acc_loss_curve():
     ax2.bar(x, losses, color = ['#FF9800', '#F44336'])
     ax2.set_title('模型损失对比', fontsize = 12)
     ax2.set_ylabel('损失值')
-    for i, v in enumerate(losses):
-        ax2.text(i, v + 0.01, f'{v:.4f}', ha = 'center')
+    for i, kk in enumerate(losses):
+        ax2.text(i, kk + 0.0002, f'{kk:.4f}', ha = 'center')
 
     plt.tight_layout()
     plt.savefig('./准确率损失对比.svg', bbox_inches = 'tight', format = "svg", transparent = False)
