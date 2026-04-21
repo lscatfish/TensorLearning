@@ -19,8 +19,8 @@ plt.rcParams['axes.unicode_minus'] = False  # 解决负号显示问题
 NUM_CLASSES = 10
 
 
-# ===================== 加载训练好的模型 =====================
 def load_trained_model():
+    """加载训练好的模型"""
     model = MNIST_ConvAttnNet().to(DEVICE)
     # 加载你训练好的权重
     model.load_state_dict(torch.load('./md.pth', map_location = DEVICE))
@@ -82,9 +82,9 @@ def plot_confusion_matrix(cm, classes = range(10)):
     plt.xlabel('预测标签', fontsize = 12)
     plt.ylabel('真实标签', fontsize = 12)
     plt.tight_layout()
-    plt.savefig('./混淆矩阵.png', bbox_inches = 'tight')
+    plt.savefig('./混淆矩阵.svg', bbox_inches = 'tight', format = "svg", transparent = False)
     plt.close()
-    print("✅ 混淆矩阵已保存：混淆矩阵.png")
+    print("✅ 混淆矩阵已保存：混淆矩阵.svg")
 
 
 def plot_roc_curve(y_true_bin, y_score):
@@ -116,9 +116,9 @@ def plot_roc_curve(y_true_bin, y_score):
     plt.title('MNIST 模型 ROC 曲线', fontsize = 14)
     plt.legend(loc = 'lower right')
     plt.tight_layout()
-    plt.savefig('./ROC曲线.png', bbox_inches = 'tight')
+    plt.savefig('./ROC曲线.svg', bbox_inches = 'tight', format = "svg", transparent = False)
     plt.close()
-    print("✅ ROC曲线已保存：ROC曲线.png")
+    print("✅ ROC曲线已保存：ROC曲线.svg")
 
 
 def plot_pr_curve(y_true_bin, y_score):
@@ -138,9 +138,9 @@ def plot_pr_curve(y_true_bin, y_score):
     plt.title('MNIST 模型 PR 曲线', fontsize = 14)
     plt.legend(loc = 'lower left')
     plt.tight_layout()
-    plt.savefig('./PR曲线.png', bbox_inches = 'tight')
+    plt.savefig('./PR曲线.svg', bbox_inches = 'tight', format = "svg", transparent = False)
     plt.close()
-    print("✅ PR曲线已保存：PR曲线.png")
+    print("✅ PR曲线已保存：PR曲线.svg")
 
 
 @torch.no_grad()
@@ -186,9 +186,9 @@ def plot_acc_loss_curve():
         ax2.text(i, v + 0.01, f'{v:.4f}', ha = 'center')
 
     plt.tight_layout()
-    plt.savefig('./准确率损失对比.png', bbox_inches = 'tight')
+    plt.savefig('./准确率损失对比.svg', bbox_inches = 'tight', format = "svg", transparent = False)
     plt.close()
-    print("✅ 准确率损失对比图已保存：准确率损失对比.png")
+    print("✅ 准确率损失对比图已保存：准确率损失对比.svg")
 
 
 if __name__ == '__main__':
