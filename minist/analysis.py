@@ -10,7 +10,7 @@ from minist.model import MNIST_ConvAttnNet, _transform, DEVICE, IMG_FOLDER, mode
 
 
 def load_model():
-    kt = torch.load('./minist/md.pth', map_location = DEVICE)
+    kt = torch.load('./md.pth', map_location = DEVICE)
     print(kt)
     model.load_state_dict(kt)
 
@@ -24,5 +24,5 @@ def eval_meta(img):
 if __name__ == "__main__":
     load_model()
     data = test_dataset[0]
-    print(torch.argmax(F.softmax(eval_meta(data[0].unsqueeze(0)))))
+    print(torch.argmax(F.softmax(eval_meta(data[0].unsqueeze(0).to(DEVICE)), dim=1)))
     print(data[1])

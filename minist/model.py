@@ -9,6 +9,8 @@ import torch.nn.functional as F
 torch.set_float32_matmul_precision('medium')
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
+DisableCompile = True
+
 
 class MNIST_Split_Dataset(Dataset):
     def __init__(self, img_root_dir, train_mode = True, transform = None):
@@ -63,7 +65,7 @@ class MNIST_Split_Dataset(Dataset):
 
 
 # 卷积化自注意力（ConvAttn2D [B, C, H, W]
-# @torch.compile()
+@torch.compile(disable = DisableCompile)
 class ConvAttn2D(nn.Module):
     """
     二维卷积化自注意力
@@ -158,7 +160,7 @@ class ConvAttn2D(nn.Module):
 
 
 # 分类主网络
-@torch.compile()
+@torch.compile(disable = DisableCompile)
 class MNIST_ConvAttnNet(nn.Module):
     def __init__(self, num_classes = 10):
         super().__init__()
@@ -192,51 +194,6 @@ class MNIST_ConvAttnNet(nn.Module):
         return x
 
 
-#
-# class MNIST_ConvAttnNet(nn.Module):
-#     def __init__(self, num_classes = 10):
-#         super().__init__()
-#         # 输入: [B, 1, 28, 28] MNIST 单通道灰度图
-#
-#         # 浅层特征提取
-#         self.conv1 = nn.Sequential(
-#             nn.Conv2d(1, 32, kernel_size = 3, padding = 1),
-#             nn.BatchNorm2d(32),
-#             nn.ReLU(inplace = True),
-#             nn.MaxPool2d(2)  # [B,32,14,14]
-#         )
-#
-#         # 卷积注意力模块
-#         self.attn_block = ConvAttn2D(
-#             in_channels = 32,
-#             attn_channels = 16,
-#             dynamic_kernel_size = 3,
-#             shared_large_kernel_size = 7  # 适配 28x28 图像，大核缩小更高效
-#         )
-#
-#         # 深层特征提取
-#         self.conv2 = nn.Sequential(
-#             nn.Conv2d(32, 64, kernel_size = 3, padding = 1),
-#             nn.BatchNorm2d(64),
-#             nn.ReLU(inplace = True),
-#             nn.MaxPool2d(2)  # [B,64,7,7]
-#         )
-#
-#         # 分类头
-#         self.avg_pool = nn.AdaptiveAvgPool2d(1)  # 全局池化 [B,64,1,1]
-#         self.fc = nn.Linear(64, num_classes)
-#
-#     def forward(self, x):
-#         x = self.conv1(x)
-#         x = self.attn_block(x)  # 注意力增强特征
-#         x = self.conv2(x)
-#         x = self.avg_pool(x).flatten(1)
-#         x = self.fc(x)
-#         return x
-#
-#
-
-
 # 数据预处理（MNIST 官方标准化）
 _transform = transforms.Compose([
     transforms.ToTensor(),
@@ -246,7 +203,7 @@ IMG_FOLDER = r".\mnist_jpg"
 train_dataset = MNIST_Split_Dataset(IMG_FOLDER, train_mode = True, transform = _transform)
 test_dataset = MNIST_Split_Dataset(IMG_FOLDER, train_mode = False, transform = _transform)
 
-BATCH_SIZE = 1
+BATCH_SIZE = 5000
 
 # 4. 初始化模型、损失函数、优化器
 model = MNIST_ConvAttnNet().to(DEVICE)
