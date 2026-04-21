@@ -7,7 +7,7 @@ import torch
 from torch import nn
 from torch.utils.data import Dataset, DataLoader
 import torch.nn.functional as F
-from minist.model import MNIST_ConvAttnNet,_transform,DEVICE,IMG_FOLDER,train_loader,test_loader,model
+from minist.model import MNIST_ConvAttnNet,_transform,DEVICE,IMG_FOLDER,model,test_dataset
 
 def load_model():
 	kt=torch.load('./minist/md.pth',map_location=DEVICE)
@@ -22,7 +22,10 @@ def eval_meta(img):
 
 if __name__ == "__main__":
 	load_model()
-	print(torch.argmax(F.softmax(eval_meta(test_loader[0]))))
+	data=test_dataset[0]
+	print(torch.argmax(F.softmax(eval_meta(data[0].unsqueeze(0)))))
+	print(data[1])
+
 
 
 	print 
