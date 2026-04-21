@@ -7,6 +7,7 @@ from torchvision import transforms
 import torch.nn.functional as F
 
 torch.set_float32_matmul_precision('medium')
+DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 
 class MNIST_Split_Dataset(Dataset):
@@ -241,8 +242,6 @@ _transform = transforms.Compose([
     transforms.ToTensor(),
     transforms.Normalize((0.1307,), (0.3081,))
 ])
-DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-
 IMG_FOLDER = r".\mnist_jpg"
 train_dataset = MNIST_Split_Dataset(IMG_FOLDER, train_mode = True, transform = _transform)
 test_dataset = MNIST_Split_Dataset(IMG_FOLDER, train_mode = False, transform = _transform)
