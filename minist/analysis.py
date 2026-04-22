@@ -9,7 +9,7 @@ from sklearn.preprocessing import label_binarize
 from torch import nn
 from torch.utils.data import Dataset, DataLoader
 import torch.nn.functional as F
-from minist.model import (MNIST_ConvAttnNet, _transform, DEVICE, IMG_FOLDER,
+from minist.model import (MNIST_ConNet, _transform, DEVICE, IMG_FOLDER,
                           test_dataset, BATCH_SIZE, train_dataset,
                           MNIST_PatchNet, MNIST_ResNet)
 import seaborn as sns

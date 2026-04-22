@@ -161,7 +161,7 @@ class ConvAttn2D(nn.Module):
 
 # 分类主网络
 @torch.compile(disable = DisableCompile)
-class MNIST_ConvAttnNet(nn.Module):
+class MNIST_ConNet(nn.Module):
     def __init__(self, num_classes = 10):
         super().__init__()
         # 输入: [B, 1, 28, 28] MNIST 单通道灰度图
@@ -290,7 +290,7 @@ test_dataset = MNIST_Split_Dataset(IMG_FOLDER, train_mode = False, transform = _
 BATCH_SIZE = 5000
 
 if __name__ == "__main__":
-    model = MNIST_ConvAttnNet().to(DEVICE)
+    model = MNIST_ConNet().to(DEVICE)
     EPOCHS = 30
     LR = 1e-3
     train_loader = DataLoader(train_dataset, BATCH_SIZE,
