@@ -52,6 +52,11 @@ warnings.filterwarnings("ignore")
 matplotlib.use("Agg")  # 无 GUI 后端
 
 import matplotlib.pyplot as plt
+import matplotlib.font_manager as fm
+
+# 设置中文字体
+plt.rcParams["font.sans-serif"] = ["SimHei", "Microsoft YaHei", "DejaVu Sans"]
+plt.rcParams["axes.unicode_minus"] = False
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler
 from sklearn.metrics import accuracy_score, classification_report, confusion_matrix
