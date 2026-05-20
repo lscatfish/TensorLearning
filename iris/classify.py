@@ -221,81 +221,563 @@ print(f"""\n  +----------------------------------------------------------+\n  | 
 # ============================================================
 print("5. 生成可视化图表...")
 
-fig, axes = plt.subplots(2, 3, figsize=(18, 10))
-fig.suptitle("Iris 鸢尾花分类 — 多方法对比", fontsize=16, fontweight="bold")
-
-# --- 5a. 损失曲线 ---
-ax = axes[0, 0]
-ax.plot(train_losses, label="Train Loss", alpha=0.8)
-ax.plot(test_losses, label="Test Loss", alpha=0.8)
-ax.set_title("mt NN: Loss 曲线")
-ax.set_xlabel("Epoch")
-ax.set_ylabel("Loss")
-ax.legend()
-ax.grid(True, alpha=0.3)
-
-# --- 5b. 准确率曲线 ---
-ax = axes[0, 1]
-ax.plot(train_accs, label="Train Acc", alpha=0.8)
-ax.plot(test_accs, label="Test Acc", alpha=0.8)
-ax.set_title("mt NN: 准确率曲线")
-ax.set_xlabel("Epoch")
-ax.set_ylabel("Accuracy")
-ax.legend()
-ax.grid(True, alpha=0.3)
-
-# --- 5c. 各方法准确率柱状图 ---
-ax = axes[0, 2]
-names = list(results.keys())
-accs = [results[n] * 100 for n in names]
-colors = plt.cm.Set3(np.linspace(0, 1, len(names)))
-bars = ax.barh(names, accs, color=colors, edgecolor="white")
-ax.set_title("各方法测试准确率对比")
-ax.set_xlabel("Accuracy (%)")
-ax.set_xlim(0, 105)
-for bar, acc in zip(bars, accs):
-    ax.text(bar.get_width() + 0.5, bar.get_y() + bar.get_height() / 2,
-            f"{acc:.1f}%", va="center", fontsize=10, fontweight="bold")
-
-# --- 5d. mt NN 混淆矩阵 ---
+from matplotlib.gridspec import GridSpec
 from sklearn.metrics import ConfusionMatrixDisplay
-ax = axes[1, 0]
-cm = confusion_matrix(y_test, y_final_pred)
-ConfusionMatrixDisplay(cm, display_labels=class_names).plot(
-    ax=ax, cmap="Blues", colorbar=False
-)
-ax.set_title("mt NN: 混淆矩阵")
+from sklearn.decomposition import PCA
 
-# --- 5e. 随机森林混淆矩阵 ---
-ax = axes[1, 1]
-rf_model = models["随机森林"]
-cm_rf = confusion_matrix(y_test, rf_model.predict(X_test_scaled))
-ConfusionMatrixDisplay(cm_rf, display_labels=class_names).plot(
-    ax=ax, cmap="Greens", colorbar=False
-)
-ax.set_title("随机森林: 混淆矩阵")
 
-# --- 5f. 原始数据散点矩阵 ---
-ax = axes[1, 2]
-ax.axis("off")
+# ---------- 辅助: 决策边界网格 ----------
+def plot_decision_boundary(ax, model, X_2d, y, title, h=0.02):
+    """在2D投影上绘制决策边界"""
+    x_min, x_max = X_2d[:, 0].min() - 0.5, X_2d[:, 0].max() + 0.5
+    y_min, y_max = X_2d[:, 1].min() - 0.5, X_2d[:, 1].max() + 0.5
+    xx, yy = np.meshgrid(np.arange(x_min, x_max, h),
+                         np.arange(y_min, y_max, h))
+    Z = model.predict(np.c_[xx.ravel(), yy.ravel()])
+    Z = Z.reshape(xx.shape)
+    ax.contourf(xx, yy, Z, alpha=0.3, cmap=plt.cm.RdYlBu)
+    scatter = ax.scatter(X_2d[:, 0], X_2d[:, 1], c=y, edgecolors="k",
+                         cmap=plt.cm.RdYlBu, s=60, linewidth=0.5)
+    ax.set_title(title, fontsize=13, fontweight="bold")
+    ax.set_xlabel("花瓣长 (标准化)")
+    ax.set_ylabel("花瓣宽 (标准化)")
+    return scatter
 
-# 用 petal_length vs petal_width 展示可分性
-scatter_ax = fig.add_axes([0.82, 0.08, 0.15, 0.18])
+
+# 选2个最可分特征: 花瓣长(idx=2), 花瓣宽(idx=3)
+FEAT2 = [2, 3]
+X2_train = X_train_scaled[:, FEAT2]
+X2_test = X_test_scaled[:, FEAT2]
+X2_all = np.vstack([X2_train, X2_test])
+y2_all = np.concatenate([y_train, y_test])
+
+
+# ============================================================
+# 图1: 数据探索 (Data Exploration)
+# ============================================================
+print("  [1/6] 数据探索...")
+fig1 = plt.figure(figsize=(16, 12))
+fig1.suptitle("Iris 数据集探索", fontsize=18, fontweight="bold", y=0.98)
+
+gs = GridSpec(3, 3, figure=fig1, hspace=0.4, wspace=0.35)
+
+# 1a. 花瓣长 vs 花瓣宽 散点
+ax = fig1.add_subplot(gs[0, :])
 for i, cls in enumerate(class_names):
     mask = y_labels == i
-    scatter_ax.scatter(
-        X_raw[mask, 2], X_raw[mask, 3],
-        label=cls, alpha=0.7, edgecolors="k", linewidth=0.5, s=30
+    ax.scatter(X_raw[mask, 2], X_raw[mask, 3], label=cls,
+               alpha=0.8, edgecolors="k", linewidth=0.5, s=50)
+ax.set_xlabel("花瓣长 (cm)")
+ax.set_ylabel("花瓣宽 (cm)")
+ax.set_title("花瓣长 vs 花瓣宽 (3类分布)", fontsize=14, fontweight="bold")
+ax.legend(framealpha=0.8, fontsize=10)
+ax.grid(True, alpha=0.3)
+
+# 1b. 类别分布饼图 + 花萼长vs宽
+ax = fig1.add_subplot(gs[1, 0])
+counts = [np.sum(y_labels == i) for i in range(3)]
+colors_pie = ["#FF6B6B", "#4ECDC4", "#45B7D1"]
+wedges, texts, autotexts = ax.pie(counts, labels=class_names, autopct="%1.1f%%",
+                                   colors=colors_pie, explode=(0.02, 0.02, 0.02))
+for at in autotexts:
+    at.set_fontsize(10); at.set_fontweight("bold")
+ax.set_title("类别分布", fontsize=13, fontweight="bold")
+
+# 1c. 花萼长 vs 花萼宽
+ax = fig1.add_subplot(gs[1, 1])
+for i, cls in enumerate(class_names):
+    mask = y_labels == i
+    ax.scatter(X_raw[mask, 0], X_raw[mask, 1], label=cls,
+               alpha=0.8, edgecolors="k", linewidth=0.5, s=40)
+ax.set_xlabel("花萼长 (cm)"); ax.set_ylabel("花萼宽 (cm)")
+ax.set_title("花萼长 vs 花萼宽", fontsize=12, fontweight="bold")
+ax.legend(fontsize=7, framealpha=0.8); ax.grid(True, alpha=0.3)
+
+# 1d. 花瓣长 vs 花萼长
+ax = fig1.add_subplot(gs[1, 2])
+for i, cls in enumerate(class_names):
+    mask = y_labels == i
+    ax.scatter(X_raw[mask, 2], X_raw[mask, 0], label=cls,
+               alpha=0.8, edgecolors="k", linewidth=0.5, s=40)
+ax.set_xlabel("花瓣长 (cm)"); ax.set_ylabel("花萼长 (cm)")
+ax.set_title("花瓣长 vs 花萼长", fontsize=12, fontweight="bold")
+ax.legend(fontsize=7, framealpha=0.8); ax.grid(True, alpha=0.3)
+
+# 1e-h. 四个特征的箱线图 + 直方图
+feature_names = ["花萼长 (cm)", "花萼宽 (cm)", "花瓣长 (cm)", "花瓣宽 (cm)"]
+
+# 箱线图 (row 2, span all 3)
+ax = fig1.add_subplot(gs[2, :])
+box_data = [X_raw[y_labels == i, :] for i in range(3)]
+positions = []
+labels = []
+for i, cls in enumerate(class_names):
+    for j, fn in enumerate(feature_names):
+        positions.append(i * 5 + j)
+        labels.append(f"{cls[:10]}\n{fn}")
+bp = ax.boxplot([X_raw[y_labels == i, j] for i in range(3) for j in range(4)],
+                positions=positions, patch_artist=True, widths=0.7,
+                medianprops=dict(color="black", linewidth=1.5))
+for patch, i in zip(bp["boxes"], range(3)):
+    patch.set_facecolor(colors_pie[i])
+    patch.set_alpha(0.7)
+ax.set_xticks(positions)
+ax.set_xticklabels(labels, rotation=30, ha="right", fontsize=7)
+ax.set_ylabel("值 (cm)")
+ax.set_title("各类别特征分布 (箱线图)", fontsize=13, fontweight="bold")
+ax.grid(True, alpha=0.3, axis="y")
+
+fig1.savefig("iris/01_data_exploration.png", dpi=150, bbox_inches="tight")
+plt.close(fig1)
+
+
+# ============================================================
+# 图2: 各模型在2D投影上的决策边界
+# ============================================================
+print("  [2/6] 决策边界对比...")
+fig2, axes = plt.subplots(2, 3, figsize=(18, 12))
+fig2.suptitle("各模型决策边界对比 (花瓣长 vs 花瓣宽)", fontsize=16, fontweight="bold")
+axes = axes.flatten()
+
+# 2a. 训练数据分布
+ax = axes[0]
+for i, cls in enumerate(class_names):
+    mask_train = y_train == i
+    ax.scatter(X2_train[mask_train, 0], X2_train[mask_train, 1],
+               label=cls, alpha=0.8, edgecolors="k", linewidth=0.5, s=50)
+ax.set_title("训练数据真实分布", fontsize=12, fontweight="bold")
+ax.set_xlabel("花瓣长"); ax.set_ylabel("花瓣宽")
+ax.legend(fontsize=8); ax.grid(True, alpha=0.3)
+
+# 2b. 逻辑回归
+lr_2d = LogisticRegression(multi_class="multinomial", solver="lbfgs", max_iter=1000)
+lr_2d.fit(X2_train, y_train)
+scatter = plot_decision_boundary(axes[1], lr_2d, X2_all, y2_all,
+                                  f"逻辑回归 (Acc={accuracy_score(y_test, lr_2d.predict(X2_test)):.2%})")
+
+# 2c. SVM
+svm_2d = SVC(kernel="rbf", C=1.0, gamma="scale")
+svm_2d.fit(X2_train, y_train)
+# 标注支持向量
+sv_mask = svm_2d.support_
+axes[2].scatter(X2_train[sv_mask, 0], X2_train[sv_mask, 1],
+                facecolors="none", edgecolors="k", s=120, linewidth=1.5, label="支持向量")
+plot_decision_boundary(axes[2], svm_2d, X2_all, y2_all,
+                        f"SVM RBF (Acc={accuracy_score(y_test, svm_2d.predict(X2_test)):.2%})")
+axes[2].legend(fontsize=8)
+
+# 2d. 随机森林
+rf_2d = RandomForestClassifier(n_estimators=100, max_depth=5, random_state=42)
+rf_2d.fit(X2_train, y_train)
+plot_decision_boundary(axes[3], rf_2d, X2_all, y2_all,
+                        f"随机森林 (Acc={accuracy_score(y_test, rf_2d.predict(X2_test)):.2%})")
+
+# 2e. KNN k=1
+knn1 = KNeighborsClassifier(n_neighbors=1)
+knn1.fit(X2_train, y_train)
+plot_decision_boundary(axes[4], knn1, X2_all, y2_all,
+                        f"KNN k=1 (Acc={accuracy_score(y_test, knn1.predict(X2_test)):.2%})")
+
+# 2f. KNN k=15
+knn15 = KNeighborsClassifier(n_neighbors=15)
+knn15.fit(X2_train, y_train)
+plot_decision_boundary(axes[5], knn15, X2_all, y2_all,
+                        f"KNN k=15 (Acc={accuracy_score(y_test, knn15.predict(X2_test)):.2%})")
+
+fig2.savefig("iris/02_decision_boundaries.png", dpi=150, bbox_inches="tight")
+plt.close(fig2)
+
+
+# ============================================================
+# 图3: 逻辑回归 — 深入分析
+# ============================================================
+print("  [3/6] 逻辑回归分析...")
+fig3 = plt.figure(figsize=(16, 10))
+fig3.suptitle("逻辑回归 — 详细分析", fontsize=16, fontweight="bold")
+
+# 3a. 所有特征系数热力图
+ax = fig3.add_subplot(2, 3, (1, 2))
+coef = models["逻辑回归"].coef_
+im = ax.imshow(coef, cmap="RdBu_r", aspect="auto", vmin=-coef.max(), vmax=coef.max())
+ax.set_xticks(range(4))
+ax.set_xticklabels(feature_names, rotation=20, ha="right")
+ax.set_yticks(range(3))
+ax.set_yticklabels(class_names)
+ax.set_title("逻辑回归系数 (Coefficients)", fontsize=13, fontweight="bold")
+for i in range(3):
+    for j in range(4):
+        ax.text(j, i, f"{coef[i][j]:.2f}", ha="center", va="center",
+                fontsize=10, fontweight="bold",
+                color="white" if abs(coef[i][j]) > 1 else "black")
+fig3.colorbar(im, ax=ax, shrink=0.8)
+
+# 3b. 系数绝对值柱状图
+ax = fig3.add_subplot(2, 3, 3)
+coef_mean = np.abs(coef).mean(axis=0)
+colors_bar = plt.cm.RdYlBu(np.linspace(0.2, 0.8, 4))
+bars = ax.bar(range(4), coef_mean, color=colors_bar, edgecolor="white", linewidth=1.5)
+ax.set_xticks(range(4))
+ax.set_xticklabels(feature_names, rotation=20, ha="right")
+ax.set_title("平均特征重要性 (|系数|)", fontsize=13, fontweight="bold")
+ax.set_ylabel("平均绝对值")
+for bar, val in zip(bars, coef_mean):
+    ax.text(bar.get_x() + bar.get_width() / 2, bar.get_height() + 0.02,
+            f"{val:.2f}", ha="center", fontweight="bold")
+ax.grid(True, alpha=0.3, axis="y")
+
+# 3c. 混淆矩阵
+ax = fig3.add_subplot(2, 3, 4)
+cm_lr = confusion_matrix(y_test, models["逻辑回归"].predict(X_test_scaled))
+ConfusionMatrixDisplay(cm_lr, display_labels=class_names).plot(
+    ax=ax, cmap="RdYlBu", colorbar=False, text_kw={"fontsize": 13}
+)
+ax.set_title("混淆矩阵 (测试集)", fontsize=13, fontweight="bold")
+
+# 3d. 每类 Recall/Precision/F1
+ax = fig3.add_subplot(2, 3, 5)
+from sklearn.metrics import precision_recall_fscore_support
+lr_pred = models["逻辑回归"].predict(X_test_scaled)
+p, r, f1, _ = precision_recall_fscore_support(y_test, lr_pred, zero_division=0)
+x = np.arange(3)
+w = 0.25
+ax.bar(x - w, p, w, label="Precision", color="#FF6B6B", edgecolor="white")
+ax.bar(x, r, w, label="Recall", color="#4ECDC4", edgecolor="white")
+ax.bar(x + w, f1, w, label="F1-score", color="#45B7D1", edgecolor="white")
+ax.set_xticks(x); ax.set_xticklabels(class_names)
+ax.set_ylim(0, 1.1)
+ax.set_title("各类别指标", fontsize=13, fontweight="bold")
+ax.legend(fontsize=9); ax.grid(True, alpha=0.3, axis="y")
+
+# 3e. 每类预测概率分布
+ax = fig3.add_subplot(2, 3, 6)
+proba = models["逻辑回归"].predict_proba(X_test_scaled)
+for i in range(3):
+    mask = y_test == i
+    if mask.sum() > 0:
+        ax.hist(proba[mask, i], bins=15, alpha=0.5, label=f"真实: {class_names[i]}",
+                color=colors_pie[i], edgecolor="white")
+ax.set_xlabel("预测概率")
+ax.set_ylabel("样本数")
+ax.set_title("各类别预测概率分布", fontsize=13, fontweight="bold")
+ax.legend(fontsize=7); ax.grid(True, alpha=0.3)
+
+fig3.savefig("iris/03_logistic_regression.png", dpi=150, bbox_inches="tight")
+plt.close(fig3)
+
+
+# ============================================================
+# 图4: SVM — 深入分析
+# ============================================================
+print("  [4/6] SVM分析...")
+fig4 = plt.figure(figsize=(16, 10))
+fig4.suptitle("SVM (RBF核) — 详细分析", fontsize=16, fontweight="bold")
+
+# 4a. SVM 在2D上的决策边界+支持向量
+ax = fig4.add_subplot(2, 3, (1, 2))
+scatter = plot_decision_boundary(ax, svm_2d, X2_all, y2_all,
+                                  f"SVM RBF决策边界 (Acc={accuracy_score(y_test, svm_2d.predict(X2_test)):.2%})")
+ax.scatter(X2_train[sv_mask, 0], X2_train[sv_mask, 1],
+           facecolors="none", edgecolors="k", s=150, linewidth=2, label=f"支持向量 ({len(sv_mask)}个)")
+ax.legend(fontsize=9, loc="upper left")
+
+# 4b. 不同C值的准确率对比
+ax = fig4.add_subplot(2, 3, 3)
+c_values = [0.01, 0.1, 0.5, 1, 5, 10, 50, 100]
+c_accs = []
+for c in c_values:
+    sm = SVC(kernel="rbf", C=c, gamma="scale")
+    sm.fit(X_train_scaled, y_train)
+    c_accs.append(accuracy_score(y_test, sm.predict(X_test_scaled)))
+ax.plot(c_values, c_accs, "o-", color="#FF6B6B", linewidth=2, markersize=8, markeredgecolor="white")
+ax.set_xscale("log")
+ax.set_xlabel("C (正则化参数)")
+ax.set_ylabel("测试准确率")
+ax.set_title("参数 C 对准确率的影响", fontsize=13, fontweight="bold")
+ax.grid(True, alpha=0.3)
+for c, a in zip(c_values, c_accs):
+    ax.annotate(f"C={c}", (c, a), textcoords="offset points", xytext=(0, 8),
+                ha="center", fontsize=8)
+
+# 4c. 混淆矩阵
+ax = fig4.add_subplot(2, 3, 4)
+cm_svm = confusion_matrix(y_test, models["SVM (RBF核)"].predict(X_test_scaled))
+ConfusionMatrixDisplay(cm_svm, display_labels=class_names).plot(
+    ax=ax, cmap="RdPu", colorbar=False, text_kw={"fontsize": 13}
+)
+ax.set_title("混淆矩阵 (测试集)", fontsize=13, fontweight="bold")
+
+# 4d. 各类别指标
+ax = fig4.add_subplot(2, 3, 5)
+svm_pred = models["SVM (RBF核)"].predict(X_test_scaled)
+p, r, f1, _ = precision_recall_fscore_support(y_test, svm_pred, zero_division=0)
+x = np.arange(3); w = 0.25
+ax.bar(x - w, p, w, label="Precision", color="#FF6B6B", edgecolor="white")
+ax.bar(x, r, w, label="Recall", color="#4ECDC4", edgecolor="white")
+ax.bar(x + w, f1, w, label="F1-score", color="#45B7D1", edgecolor="white")
+ax.set_xticks(x); ax.set_xticklabels(class_names)
+ax.set_ylim(0, 1.1)
+ax.set_title("各类别指标", fontsize=13, fontweight="bold")
+ax.legend(fontsize=9); ax.grid(True, alpha=0.3, axis="y")
+
+# 4e. 不同gamma值的对比
+ax = fig4.add_subplot(2, 3, 6)
+gamma_values = [0.001, 0.01, 0.1, 0.5, 1, 5, 10, "scale", "auto"]
+gamma_accs = []
+g_labels = []
+for g in gamma_values:
+    try:
+        sm = SVC(kernel="rbf", C=1.0, gamma=g)
+        sm.fit(X_train_scaled, y_train)
+        gamma_accs.append(accuracy_score(y_test, sm.predict(X_test_scaled)))
+        g_labels.append(str(g))
+    except Exception:
+        pass
+colors_g = plt.cm.viridis(np.linspace(0, 1, len(gamma_accs)))
+bars = ax.bar(range(len(gamma_accs)), gamma_accs, color=colors_g, edgecolor="white")
+ax.set_xticks(range(len(gamma_accs)))
+ax.set_xticklabels(g_labels)
+ax.set_xlabel("gamma")
+ax.set_ylabel("测试准确率")
+ax.set_title("参数 gamma 对准确率的影响 (C=1.0)", fontsize=13, fontweight="bold")
+ax.set_ylim(0, 1.05)
+ax.grid(True, alpha=0.3, axis="y")
+for bar, a in zip(bars, gamma_accs):
+    ax.text(bar.get_x() + bar.get_width() / 2, bar.get_height() + 0.01,
+            f"{a:.3f}", ha="center", fontsize=8, fontweight="bold")
+
+fig4.savefig("iris/04_svm.png", dpi=150, bbox_inches="tight")
+plt.close(fig4)
+
+
+# ============================================================
+# 图5: 随机森林 — 深入分析
+# ============================================================
+print("  [5/6] 随机森林分析...")
+fig5 = plt.figure(figsize=(16, 10))
+fig5.suptitle("随机森林 — 详细分析", fontsize=16, fontweight="bold")
+
+rf = models["随机森林"]
+
+# 5a. 特征重要性
+ax = fig5.add_subplot(2, 3, 1)
+importances = rf.feature_importances_
+indices = np.argsort(importances)[::-1]
+colors_imp = plt.cm.RdYlGn(np.linspace(0.3, 0.9, 4))
+bars = ax.bar(range(4), importances[indices], color=colors_imp, edgecolor="white", linewidth=1.5)
+ax.set_xticks(range(4))
+ax.set_xticklabels([feature_names[i] for i in indices], rotation=20, ha="right")
+ax.set_title("特征重要性", fontsize=13, fontweight="bold")
+ax.set_ylabel("重要性分数")
+for bar, val in zip(bars, importances[indices]):
+    ax.text(bar.get_x() + bar.get_width() / 2, bar.get_height() + 0.005,
+            f"{val:.4f}", ha="center", fontweight="bold")
+ax.grid(True, alpha=0.3, axis="y")
+
+# 5b. 树数量 vs 准确率
+ax = fig5.add_subplot(2, 3, 2)
+n_trees = [1, 5, 10, 20, 50, 100, 200]
+tree_accs = []
+for n in n_trees:
+    rf_n = RandomForestClassifier(n_estimators=n, max_depth=5, random_state=42)
+    rf_n.fit(X_train_scaled, y_train)
+    tree_accs.append(accuracy_score(y_test, rf_n.predict(X_test_scaled)))
+ax.plot(n_trees, tree_accs, "o-", color="#45B7D1", linewidth=2, markersize=8, markeredgecolor="white")
+ax.set_xlabel("树的数量")
+ax.set_ylabel("测试准确率")
+ax.set_title("树数量对准确率的影响", fontsize=13, fontweight="bold")
+ax.set_xscale("log"); ax.grid(True, alpha=0.3)
+for n, a in zip(n_trees, tree_accs):
+    ax.annotate(f"{a:.3f}", (n, a), textcoords="offset points", xytext=(0, 8),
+                ha="center", fontsize=9)
+
+# 5c. max_depth vs 准确率
+ax = fig5.add_subplot(2, 3, 3)
+depths = [1, 2, 3, 5, 7, 10, None]
+depth_accs = []
+depth_labels = [str(d) for d in depths]
+for d in depths:
+    rf_d = RandomForestClassifier(n_estimators=100, max_depth=d, random_state=42)
+    rf_d.fit(X_train_scaled, y_train)
+    depth_accs.append(accuracy_score(y_test, rf_d.predict(X_test_scaled)))
+ax.plot(range(len(depths)), depth_accs, "o-", color="#FF6B6B", linewidth=2, markersize=8, markeredgecolor="white")
+ax.set_xticks(range(len(depths))); ax.set_xticklabels(depth_labels)
+ax.set_xlabel("max_depth")
+ax.set_ylabel("测试准确率")
+ax.set_title("树深度对准确率的影响", fontsize=13, fontweight="bold")
+ax.grid(True, alpha=0.3)
+
+# 5d. 混淆矩阵
+ax = fig5.add_subplot(2, 3, 4)
+cm_rf = confusion_matrix(y_test, rf.predict(X_test_scaled))
+ConfusionMatrixDisplay(cm_rf, display_labels=class_names).plot(
+    ax=ax, cmap="YlGn", colorbar=False, text_kw={"fontsize": 13}
+)
+ax.set_title("混淆矩阵 (测试集)", fontsize=13, fontweight="bold")
+
+# 5e. 各类别指标
+ax = fig5.add_subplot(2, 3, 5)
+rf_pred = rf.predict(X_test_scaled)
+p, r, f1, _ = precision_recall_fscore_support(y_test, rf_pred, zero_division=0)
+x = np.arange(3); w = 0.25
+ax.bar(x - w, p, w, label="Precision", color="#FF6B6B", edgecolor="white")
+ax.bar(x, r, w, label="Recall", color="#4ECDC4", edgecolor="white")
+ax.bar(x + w, f1, w, label="F1-score", color="#45B7D1", edgecolor="white")
+ax.set_xticks(x); ax.set_xticklabels(class_names)
+ax.set_ylim(0, 1.1)
+ax.set_title("各类别指标", fontsize=13, fontweight="bold")
+ax.legend(fontsize=9); ax.grid(True, alpha=0.3, axis="y")
+
+# 5f. OOB Score (使用oob_score)
+ax = fig5.add_subplot(2, 3, 6)
+rf_oob = RandomForestClassifier(n_estimators=100, max_depth=5, random_state=42, oob_score=True)
+rf_oob.fit(X_train_scaled, y_train)
+ax.axis("off")
+info_text = (
+    f"随机森林信息:\n\n"
+    f"树的数量: 100\n"
+    f"最大深度: 5\n"
+    f"OOB Score: {rf_oob.oob_score_:.4f}\n"
+    f"测试准确率: {accuracy_score(y_test, rf_oob.predict(X_test_scaled)):.4f}\n\n"
+    f"特征重要性:\n"
+)
+for name, imp in zip(feature_names, importances):
+    info_text += f"  {name}: {imp:.4f}\n"
+ax.text(0.05, 0.95, info_text, transform=ax.transAxes, fontsize=11,
+        fontfamily="monospace", verticalalignment="top",
+        bbox=dict(boxstyle="round,pad=0.5", facecolor="#f0f0f0", alpha=0.8))
+
+fig5.savefig("iris/05_random_forest.png", dpi=150, bbox_inches="tight")
+plt.close(fig5)
+
+
+# ============================================================
+# 图6: KNN — 深入分析
+# ============================================================
+print("  [6/6] KNN + mt NN分析...")
+fig6 = plt.figure(figsize=(16, 10))
+fig6.suptitle("KNN 与 mt 神经网络 — 详细分析", fontsize=16, fontweight="bold")
+
+# 6a. KNN: k值 vs 准确率
+ax = fig6.add_subplot(2, 2, 1)
+k_values = range(1, 31)
+k_accs = []
+for k in k_values:
+    knn = KNeighborsClassifier(n_neighbors=k)
+    knn.fit(X_train_scaled, y_train)
+    k_accs.append(accuracy_score(y_test, knn.predict(X_test_scaled)))
+ax.plot(list(k_values), k_accs, "o-", color="#45B7D1", linewidth=2, markersize=5, markeredgecolor="white")
+best_k = k_values[np.argmax(k_accs)]
+ax.axvline(x=best_k, color="#FF6B6B", linestyle="--", alpha=0.7, label=f"最佳k={best_k}")
+ax.set_xlabel("k (邻居数)")
+ax.set_ylabel("测试准确率")
+ax.set_title("KNN: k值对准确率的影响", fontsize=13, fontweight="bold")
+ax.legend(); ax.grid(True, alpha=0.3)
+
+# 6b. KNN 混淆矩阵
+ax = fig6.add_subplot(2, 2, 2)
+cm_knn = confusion_matrix(y_test, models["KNN (k=5)"].predict(X_test_scaled))
+ConfusionMatrixDisplay(cm_knn, display_labels=class_names).plot(
+    ax=ax, cmap="BuPu", colorbar=False, text_kw={"fontsize": 13}
+)
+ax.set_title("KNN (k=5) 混淆矩阵", fontsize=13, fontweight="bold")
+
+# 6c. mt NN 训练曲线
+ax = fig6.add_subplot(2, 2, 3)
+ax_loss = ax.twinx()
+line1, = ax.plot(train_losses, color="#FF6B6B", linewidth=1.5, label="训练Loss")
+line2, = ax.plot(test_losses, color="#FF6B6B", linewidth=1.5, linestyle="--", label="测试Loss")
+line3, = ax_loss.plot(train_accs, color="#45B7D1", linewidth=1.5, label="训练Acc")
+line4, = ax_loss.plot(test_accs, color="#45B7D1", linewidth=1.5, linestyle="--", label="测试Acc")
+ax.set_xlabel("Epoch")
+ax.set_ylabel("Loss", color="#FF6B6B")
+ax_loss.set_ylabel("Accuracy", color="#45B7D1")
+ax.set_title("mt NN: 训练曲线", fontsize=13, fontweight="bold")
+lines = [line1, line2, line3, line4]
+labels = [l.get_label() for l in lines]
+ax.legend(lines, labels, fontsize=8, loc="center right")
+ax.grid(True, alpha=0.3)
+
+# 6d. mt NN 混淆矩阵
+ax = fig6.add_subplot(2, 2, 4)
+cm_nn = confusion_matrix(y_test, y_final_pred)
+ConfusionMatrixDisplay(cm_nn, display_labels=class_names).plot(
+    ax=ax, cmap="Blues", colorbar=False, text_kw={"fontsize": 13}
+)
+ax.set_title(f"mt NN 混淆矩阵 (Acc={final_acc:.2%})", fontsize=13, fontweight="bold")
+
+fig6.savefig("iris/06_knn_mt_nn.png", dpi=150, bbox_inches="tight")
+plt.close(fig6)
+
+
+# ============================================================
+# 图7: 综合对比总结
+# ============================================================
+print("  [7/7] 综合总结图...")
+fig7 = plt.figure(figsize=(20, 14))
+fig7.suptitle("Iris 鸢尾花分类 — 多方法综合对比", fontsize=18, fontweight="bold")
+
+gs7 = GridSpec(3, 4, figure=fig7, hspace=0.5, wspace=0.4)
+
+# 7a. 准确率柱状图
+ax = fig7.add_subplot(gs7[0, :2])
+method_names = list(results.keys())
+method_accs = [results[n] * 100 for n in method_names]
+colors_top = plt.cm.Set3(np.linspace(0, 1, len(method_names)))
+bars = ax.barh(method_names, method_accs, color=colors_top, edgecolor="white", height=0.6)
+ax.set_title("各方法测试准确率对比", fontsize=15, fontweight="bold")
+ax.set_xlabel("准确率 (%)")
+ax.set_xlim(0, 108)
+for bar, acc in zip(bars, method_accs):
+    ax.text(bar.get_width() + 0.5, bar.get_y() + bar.get_height() / 2,
+            f"{acc:.1f}%", va="center", fontsize=12, fontweight="bold")
+ax.grid(True, alpha=0.3, axis="x")
+
+# 7b. 每类F1-Score对比
+ax = fig7.add_subplot(gs7[0, 2:])
+f1_scores = {}
+for name, model in {**models, "mt 神经网络": None}.items():
+    if name == "mt 神经网络":
+        pred = y_final_pred
+    else:
+        pred = model.predict(X_test_scaled)
+    _, _, f1, _ = precision_recall_fscore_support(y_test, pred, zero_division=0)
+    f1_scores[name] = f1
+x = np.arange(3); w = 0.15
+for idx, (name, f1s) in enumerate(f1_scores.items()):
+    ax.bar(x + idx * w - w * 2, f1s, w, label=name, alpha=0.85, edgecolor="white")
+ax.set_xticks(x); ax.set_xticklabels(class_names)
+ax.set_ylim(0, 1.15)
+ax.set_title("各类别 F1-Score 对比", fontsize=13, fontweight="bold")
+ax.legend(fontsize=8, ncol=2); ax.grid(True, alpha=0.3, axis="y")
+
+# 7c. 所有方法混淆矩阵一览
+cm_methods = [
+    ("逻辑回归", confusion_matrix(y_test, models["逻辑回归"].predict(X_test_scaled))),
+    ("SVM RBF", confusion_matrix(y_test, models["SVM (RBF核)"].predict(X_test_scaled))),
+    ("随机森林", confusion_matrix(y_test, models["随机森林"].predict(X_test_scaled))),
+    ("KNN k=5", confusion_matrix(y_test, models["KNN (k=5)"].predict(X_test_scaled))),
+    ("mt NN", confusion_matrix(y_test, y_final_pred)),
+]
+cm_positions = [(1, 0), (1, 1), (1, 2), (2, 0), (2, 1)]
+for (name, cm), (row, col) in zip(cm_methods, cm_positions):
+    ax = fig7.add_subplot(gs7[row, col])
+    ConfusionMatrixDisplay(cm, display_labels=class_names).plot(
+        ax=ax, cmap="YlOrRd", colorbar=False, text_kw={"fontsize": 10},
+        im_kw={"vmin": 0, "vmax": 15}
     )
-scatter_ax.set_xlabel("花瓣长", fontsize=8)
-scatter_ax.set_ylabel("花瓣宽", fontsize=8)
-scatter_ax.set_title("数据分布 (2D 投影)", fontsize=9)
-scatter_ax.legend(fontsize=6, framealpha=0.8)
-scatter_ax.tick_params(labelsize=6)
+    ax.set_title(name, fontsize=11, fontweight="bold")
 
-plt.tight_layout(rect=[0, 0, 0.8, 0.95])
-fig.savefig("iris/results.png", dpi=150, bbox_inches="tight")
-print("  图表已保存至: iris/results.png")
+fig7.tight_layout()
+fig7.savefig("iris/07_summary.png", dpi=150, bbox_inches="tight")
+plt.close(fig7)
 
-plt.close()
+print("  图表已保存至 iris/ 目录:")
+print("    01_data_exploration.png  — 数据探索")
+print("    02_decision_boundaries.png — 决策边界对比")
+print("    03_logistic_regression.png — 逻辑回归分析")
+print("    04_svm.png — SVM分析")
+print("    05_random_forest.png — 随机森林分析")
+print("    06_knn_mt_nn.png — KNN + mt NN分析")
+print("    07_summary.png — 综合对比总结")
+
 print("\n完成！")
