@@ -12,3 +12,7 @@
 **.jpeg
 /minist/mnist/MNIST
 #**.pth
+
+# Opencode
+opencode.json
+.opencode/
