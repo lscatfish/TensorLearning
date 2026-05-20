@@ -36,6 +36,7 @@ TensorLearning/
 基于纯 Python + NumPy 实现的静态计算图与自动梯度反向传播库，类似 TensorFlow 1.x / PyTorch 底层原理。
 
 **核心特性：**
+
 - **计算图**：Node → Operation → Session 前向执行
 - **自动微分**：BFS 反向传播，链式法则梯度累加
 - **优化器**：SGD、Momentum、Adam
@@ -49,6 +50,7 @@ TensorLearning/
 基于 PyTorch 实现三种模型架构，完成 MNIST 10 分类任务。
 
 **模型：**
+
 | 模型 | 架构 | 测试准确率 |
 |------|------|-----------|
 | ConvNet | 7 层卷积 + 2 层全连接 | 98.90% |

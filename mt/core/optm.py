@@ -128,9 +128,14 @@ class SGD(Optimizer):
         # 返回梯度表
         return grad_table
 
-
 class Momentum(Optimizer):
-    def __init__(self, learning_rate: float = 0.001, gamma = 0.7):
+    """Momentum Optimizer
+    Args:
+        learning_rate (float): Learning rate for the optimizer.
+        gamma (float): 
+    References:
+    """
+    def __init__(self, learning_rate: float = 0.001, gamma: float = 0.7):
         super().__init__(learning_rate)
         # save gradient of each node
         self.node2v = {}
