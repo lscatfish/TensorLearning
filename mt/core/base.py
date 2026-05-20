@@ -327,6 +327,8 @@ class reduce_mean(Operation):
         return np.mean(x_v, axis = self.axis)
 
 
+from mt.core.constant import EPSILON
+
 class log(Operation):
     """对数操作"""
 
@@ -334,7 +336,4 @@ class log(Operation):
         super().__init__(input_nodes = [x], node_name = node_name)
 
     def compute(self, x_v: np.ndarray):
-        # 非法值校验：对数输入不能≤0
-        if (x_v <= 0).any():
-            back_print("Oops, invalid value encountered in 'log', I guess you forget activation function", color = "yellow")
-        return np.log(x_v)
+        return np.log(np.clip(x_v, EPSILON, None))

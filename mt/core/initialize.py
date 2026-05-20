@@ -50,7 +50,7 @@ def uniform_init(shape: Tuple[int, int, ...], input_size = None, output_size = N
     # 均匀分布范围：±1/√(维度)，加EPSILON防止分母为0
     return np.random.uniform(
         low = -1 / (np.sqrt(input_size) + EPSILON),
-        high = -1 / (np.sqrt(output_size) + EPSILON),
+        high = 1 / (np.sqrt(output_size) + EPSILON),
         size = shape)
 
 
@@ -103,7 +103,7 @@ def he_uniform_init(shape: Tuple[int, int, ...], input_size = None) -> np.ndarra
         input_size = shape[0]
     return np.random.uniform(
         -np.sqrt(6 / input_size + EPSILON),
-        -np.sqrt(6 / input_size + EPSILON),
+        np.sqrt(6 / input_size + EPSILON),
         shape)
 
 

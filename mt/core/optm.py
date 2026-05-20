@@ -25,7 +25,7 @@ def _backwards_(op_node: Operation) -> Dict[Operation | Node | Variable, float]:
     :return: grad_table 梯度表：{节点: 该节点的梯度值}
     """
     # 梯度表：存储每个计算节点对应的梯度值，初始损失节点梯度为1（d(loss)/d(loss)=1）
-    grad_table = {op_node: 1.}
+    grad_table = {op_node: np.array(1.0)}
     # 已访问节点集合：防止重复计算，避免循环依赖
     visit_nodes = set()
     # BFS队列：按层级遍历计算图节点
@@ -163,14 +163,14 @@ class Adam(Optimizer):
         self.beta1 = beta1
         self.beta2 = beta2
 
-        self.prod_beta1 = 1
-        self.prod_beta2 = 1
-        self.node2m = {}  # history value
-        self.node2v = {}  # accumulate value
+        self.t = 0
+        self.node2m = {}  # 一阶矩估计
+        self.node2v = {}  # 二阶矩估计
 
     def backward(self, loss_node: Operation | Node):
         lr = self.learning_rate
         grad_table = _backwards_(op_node = loss_node)
+        self.t += 1
         for node in grad_table:
             if isinstance(node, Variable):
                 grad = grad_table[node]
@@ -184,10 +184,8 @@ class Adam(Optimizer):
                 else:
                     self.node2v[node] = self.beta2 * self.node2v[node] + (1 - self.beta2) * grad * grad
 
-                self.prod_beta1 *= self.beta1
-                self.prod_beta2 *= self.beta2
-                m_hat = self.node2m[node] / (1 - self.prod_beta1)
-                v_hat = self.node2v[node] / (1 - self.prod_beta2)
+                m_hat = self.node2m[node] / (1 - self.beta1 ** self.t)
+                v_hat = self.node2v[node] / (1 - self.beta2 ** self.t)
 
                 node.data -= lr * m_hat / (np.sqrt(v_hat + EPSILON))
 

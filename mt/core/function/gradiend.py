@@ -175,12 +175,10 @@ def __relu_gradient(op_node: Operation, grad: np.ndarray):
     """
     ReLU激活函数 反向梯度
     relu(x)' = 1 (x>0), 0 (x≤0)
-    简化实现：用输出/输入直接求导
     :return: [输入梯度]
     """
     x = op_node.input_nodes[0].data
-    y = op_node.data
-    k = y / x  # 梯度系数：x>0=1，x≤0=0
+    k = np.where(x > 0, 1.0, 0.0)
     return [k * grad]
 
 
@@ -189,12 +187,10 @@ def __leaky_relu(op_node: Operation, grad: np.ndarray):
     """
     Leaky ReLU激活函数 反向梯度
     leaky_relu(x)' = 1 (x>0), alpha (x≤0)
-    简化实现：用输出/输入直接求导
     :return: [输入梯度]
     """
     x = op_node.input_nodes[0].data
-    y = op_node.data
-    k = y / x
+    k = np.where(x >= 0, 1.0, op_node.alpha)
     return [k * grad]
 
 

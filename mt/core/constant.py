@@ -26,3 +26,9 @@ class runtime:
     global_calc_graph = list()
     nn_cnt = defaultdict(int)
     grad_table = None
+
+    @classmethod
+    def reset_graph(cls):
+        cls.global_calc_graph.clear()
+        cls.nn_cnt.clear()
+        cls.grad_table = None
