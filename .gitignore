@@ -13,6 +13,8 @@
 /minist/mnist/MNIST
 #**.pth
 
+package-lock.json
+
 # Opencode
 opencode.json
 .opencode/
