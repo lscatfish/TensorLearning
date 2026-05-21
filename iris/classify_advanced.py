@@ -26,11 +26,9 @@
 
 5. **MLP 多层感知器 (sklearn)**
    - 使用 sklearn.neural_network.MLPClassifier
-   - 支持多层全连接网络 + Adam 优化 + ReLU 激活
-   - 相比 mt 自研框架，MLPClassifier 内置了 L2 正则、早停、
-     自适应学习率等实用特性，能更好应对小数据集过拟合问题。
-   - 思考：调节 hidden_layer_sizes / alpha / early_stopping
-     可显著影响小数据集上的泛化性能。
+   - 参考 mt 框架的小→大→小构架：Input(4)→Expand(16/32)→Compress(8)→Output(3)
+   - 高维划分理论：先升维到高维空间使数据更线性可分，再降维到类别空间
+   - 相比 mt，MLPClassifier 内置了 L2 正则、自适应学习率等实用特性
 
 6. **梯度提升树 (Gradient Boosting)**
    - 基于残差逐步迭代的集成方法，通常在结构化数据上表现优异。
@@ -49,7 +47,7 @@
 ============================================================
 预期结果排序（从数据特性推断）
 ============================================================
-SVM ≈ KNN > MLP (调优后) ≈ GradientBoosting > 随机森林 > 逻辑回归 > 决策树 > 朴素贝叶斯
+SVM ≈ KNN > MLP (小→大→小构架) ≈ GradientBoosting > 随机森林 > 逻辑回归 > 决策树 > 朴素贝叶斯
 """
 
 import warnings
@@ -143,7 +141,9 @@ models = {
         n_estimators=100, max_depth=5, random_state=42
     ),
     "KNN (k=5)": KNeighborsClassifier(n_neighbors=5),
-    # MLP — 小型网络，加正则化防过拟合
+    # MLP — 小→大→小构架（高维划分理论）
+    # 先升维到高维空间使数据更线性可分，再逐步降维到类别空间
+    # 4→16→8→3 与 mt 框架原结构对齐
     "MLP (16,8)": MLPClassifier(
         hidden_layer_sizes=(16, 8),
         activation="relu",
@@ -152,21 +152,30 @@ models = {
         max_iter=1000,
         random_state=42,
     ),
-    # MLP — 更浅层，尝试单隐藏层的效果
-    "MLP (32,)": MLPClassifier(
-        hidden_layer_sizes=(32,),
+    # MLP — 加大升维跨度
+    "MLP (32,16,8)": MLPClassifier(
+        hidden_layer_sizes=(32, 16, 8),
         activation="relu",
         solver="adam",
         alpha=0.001,
         max_iter=1000,
         random_state=42,
     ),
-    # MLP — 深层窄网络，观察过拟合现象
-    "MLP (64,32,16)": MLPClassifier(
-        hidden_layer_sizes=(64, 32, 16),
+    # MLP — 大跨度升维后直接降维
+    "MLP (64,32)": MLPClassifier(
+        hidden_layer_sizes=(64, 32),
         activation="relu",
         solver="adam",
-        alpha=0.01,
+        alpha=0.001,
+        max_iter=1000,
+        random_state=42,
+    ),
+    # MLP — 精简版小→大→小
+    "MLP (32,8)": MLPClassifier(
+        hidden_layer_sizes=(32, 8),
+        activation="relu",
+        solver="adam",
+        alpha=0.001,
         max_iter=1000,
         random_state=42,
     ),
@@ -193,7 +202,7 @@ print("3. MLP 超参数调优 (GridSearchCV)")
 print("=" * 60)
 
 param_grid = {
-    "hidden_layer_sizes": [(16,), (32,), (16, 8), (32, 16), (64, 32, 16)],
+    "hidden_layer_sizes": [(16, 8), (32, 16, 8), (64, 32), (32, 8)],
     "alpha": [0.0001, 0.001, 0.01, 0.1],
     "activation": ["relu", "tanh"],
 }
@@ -479,7 +488,7 @@ fig4.suptitle("MLP (多层感知器) — 深入分析", fontsize=16, fontweight=
 
 # 4a. 不同架构准确率对比
 ax = fig4.add_subplot(2, 3, 1)
-arch_names = ["MLP (16,8)", "MLP (32,)", "MLP (64,32,16)", "MLP (GridSearch最佳)"]
+arch_names = ["MLP (16,8)", "MLP (32,16,8)", "MLP (64,32)", "MLP (GridSearch最佳)"]
 arch_accs = [results.get(n, 0) for n in arch_names]
 colors_arch = plt.cm.viridis(np.linspace(0.2, 0.8, len(arch_names)))
 bars = ax.barh(arch_names, [a * 100 for a in arch_accs], color=colors_arch, edgecolor="white")
@@ -494,7 +503,7 @@ ax.grid(True, alpha=0.3, axis="x")
 # 4b. MLP 损失曲线
 ax = fig4.add_subplot(2, 3, 2)
 mlp_for_plot = MLPClassifier(
-    hidden_layer_sizes=(16, 8), activation="relu", solver="adam",
+    hidden_layer_sizes=(32, 16, 8), activation="relu", solver="adam",
     alpha=0.001, max_iter=1000, random_state=42
 )
 mlp_for_plot.fit(X_train_scaled, y_train)
@@ -503,7 +512,7 @@ if hasattr(mlp_for_plot, "validation_scores_") and mlp_for_plot.validation_score
     val_scores = [1 - s for s in mlp_for_plot.validation_scores_]
     ax.plot(val_scores, label="验证损失 (1-acc)", color="#45B7D1", linewidth=2, linestyle="--")
 ax.set_xlabel("迭代次数"); ax.set_ylabel("损失")
-ax.set_title("MLP (16,8) 训练曲线", fontsize=13, fontweight="bold")
+ax.set_title("MLP (32,16,8) 训练曲线", fontsize=13, fontweight="bold")
 ax.legend(); ax.grid(True, alpha=0.3)
 
 # 4c. MLP 混淆矩阵 (GridSearch最佳)
@@ -768,8 +777,8 @@ ax.set_title(f"KNN (k=5) 混淆矩阵 (Acc={results['KNN (k=5)']:.2%})", fontsiz
 ax = fig7.add_subplot(2, 2, 3)
 mlp_configs = [
     ("MLP (16,8)", (16, 8), 0.001),
-    ("MLP (32,)", (32,), 0.001),
-    ("MLP (64,32,16)", (64, 32, 16), 0.01),
+    ("MLP (32,16,8)", (32, 16, 8), 0.001),
+    ("MLP (64,32)", (64, 32), 0.001),
 ]
 for label, layers, alpha in mlp_configs:
     m = MLPClassifier(hidden_layer_sizes=layers, activation="relu", solver="adam",
