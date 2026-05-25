@@ -30,7 +30,6 @@ import matplotlib.pyplot as plt
 import matplotlib.font_manager as fm
 
 # 强制重建字体缓存，避免旧缓存导致配置失效
-fm._rebuild()
 from matplotlib.gridspec import GridSpec
 from sklearn.model_selection import train_test_split, cross_val_score, GridSearchCV
 from sklearn.preprocessing import StandardScaler, label_binarize
