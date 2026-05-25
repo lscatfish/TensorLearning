@@ -259,7 +259,7 @@ print("=" * 60)
 print("\n  各方法测试准确率排名:")
 sorted_results = sorted(results.items(), key=lambda x: x[1], reverse=True)
 for i, (name, acc) in enumerate(sorted_results, 1):
-    bar = "█" * int(acc * 50)
+    bar = "=" * int(acc * 50)
     print(f"  {i}. {name:　<16s}  {acc:.4f}  {bar}")
 
 print(f"""\n  +--------------------------------------------------------------+
@@ -288,7 +288,7 @@ print("\n6. 生成可视化图表...")
 feature_names = ["花萼长 (cm)", "花萼宽 (cm)", "花瓣长 (cm)", "花瓣宽 (cm)"]
 colors_pie = ["#FF6B6B", "#4ECDC4", "#45B7D1"]
 
-# ---------- 辅助: 决策边界网格 ----------
+
 def plot_decision_boundary(ax, model, X_2d, y, title, h=0.02):
     x_min, x_max = X_2d[:, 0].min() - 0.5, X_2d[:, 0].max() + 0.5
     y_min, y_max = X_2d[:, 1].min() - 0.5, X_2d[:, 1].max() + 0.5
@@ -325,9 +325,11 @@ for i, cls in enumerate(class_names):
     mask = y_labels == i
     ax.scatter(X_raw[mask, 2], X_raw[mask, 3], label=cls,
                alpha=0.8, edgecolors="k", linewidth=0.5, s=50)
-ax.set_xlabel("花瓣长 (cm)"); ax.set_ylabel("花瓣宽 (cm)")
+ax.set_xlabel("花瓣长 (cm)")
+ax.set_ylabel("花瓣宽 (cm)")
 ax.set_title("花瓣长 vs 花瓣宽 (3类分布)", fontsize=14, fontweight="bold")
-ax.legend(framealpha=0.8, fontsize=10); ax.grid(True, alpha=0.3)
+ax.legend(framealpha=0.8, fontsize=10)
+ax.grid(True, alpha=0.3)
 
 ax = fig1.add_subplot(gs[1, 0])
 counts = [np.sum(y_labels == i) for i in range(3)]
@@ -342,18 +344,22 @@ for i, cls in enumerate(class_names):
     mask = y_labels == i
     ax.scatter(X_raw[mask, 0], X_raw[mask, 1], label=cls,
                alpha=0.8, edgecolors="k", linewidth=0.5, s=40)
-ax.set_xlabel("花萼长 (cm)"); ax.set_ylabel("花萼宽 (cm)")
+ax.set_xlabel("花萼长 (cm)")
+ax.set_ylabel("花萼宽 (cm)")
 ax.set_title("花萼长 vs 花萼宽", fontsize=12, fontweight="bold")
-ax.legend(fontsize=7, framealpha=0.8); ax.grid(True, alpha=0.3)
+ax.legend(fontsize=7, framealpha=0.8)
+ax.grid(True, alpha=0.3)
 
 ax = fig1.add_subplot(gs[1, 2])
 for i, cls in enumerate(class_names):
     mask = y_labels == i
     ax.scatter(X_raw[mask, 2], X_raw[mask, 0], label=cls,
                alpha=0.8, edgecolors="k", linewidth=0.5, s=40)
-ax.set_xlabel("花瓣长 (cm)"); ax.set_ylabel("花萼长 (cm)")
+ax.set_xlabel("花瓣长 (cm)")
+ax.set_ylabel("花萼长 (cm)")
 ax.set_title("花瓣长 vs 花萼长", fontsize=12, fontweight="bold")
-ax.legend(fontsize=7, framealpha=0.8); ax.grid(True, alpha=0.3)
+ax.legend(fontsize=7, framealpha=0.8)
+ax.grid(True, alpha=0.3)
 
 ax = fig1.add_subplot(gs[2, :])
 box_data = [X_raw[y_labels == i, :] for i in range(3)]
@@ -391,8 +397,10 @@ for i, cls in enumerate(class_names):
     ax.scatter(X2_train[mask_train, 0], X2_train[mask_train, 1],
                label=cls, alpha=0.8, edgecolors="k", linewidth=0.5, s=50)
 ax.set_title("训练数据真实分布", fontsize=12, fontweight="bold")
-ax.set_xlabel("花瓣长"); ax.set_ylabel("花瓣宽")
-ax.legend(fontsize=8); ax.grid(True, alpha=0.3)
+ax.set_xlabel("花瓣长")
+ax.set_ylabel("花瓣宽")
+ax.legend(fontsize=8)
+ax.grid(True, alpha=0.3)
 
 # 其他7个模型
 boundary_models = {
@@ -491,7 +499,6 @@ fig_svm.savefig("iris/output/03_svm_analysis.svg", bbox_inches="tight")
 plt.close(fig_svm)
 
 
-
 # 逻辑回归分析
 
 print("  [4/9] 逻辑回归分析...")
@@ -501,8 +508,10 @@ fig3.suptitle("逻辑回归 — 详细分析", fontsize=16, fontweight="bold")
 ax = fig3.add_subplot(2, 3, (1, 2))
 coef = models["逻辑回归"].coef_
 im = ax.imshow(coef, cmap="RdBu_r", aspect="auto", vmin=-coef.max(), vmax=coef.max())
-ax.set_xticks(range(4)); ax.set_xticklabels(feature_names, rotation=20, ha="right")
-ax.set_yticks(range(3)); ax.set_yticklabels(class_names)
+ax.set_xticks(range(4))
+ax.set_xticklabels(feature_names, rotation=20, ha="right")
+ax.set_yticks(range(3))
+ax.set_yticklabels(class_names)
 ax.set_title("逻辑回归系数", fontsize=13, fontweight="bold")
 for i in range(3):
     for j in range(4):
@@ -515,7 +524,8 @@ ax = fig3.add_subplot(2, 3, 3)
 coef_mean = np.abs(coef).mean(axis=0)
 colors_bar = plt.cm.RdYlBu(np.linspace(0.2, 0.8, 4))
 bars = ax.bar(range(4), coef_mean, color=colors_bar, edgecolor="white", linewidth=1.5)
-ax.set_xticks(range(4)); ax.set_xticklabels(feature_names, rotation=20, ha="right")
+ax.set_xticks(range(4))
+ax.set_xticklabels(feature_names, rotation=20, ha="right")
 ax.set_title("平均特征重要性 (|系数|)", fontsize=13, fontweight="bold")
 ax.set_ylabel("平均绝对值")
 for bar, val in zip(bars, coef_mean):
@@ -536,10 +546,12 @@ x = np.arange(3); w = 0.25
 ax.bar(x - w, p, w, label="Precision", color="#FF6B6B", edgecolor="white")
 ax.bar(x, r, w, label="Recall", color="#4ECDC4", edgecolor="white")
 ax.bar(x + w, f1, w, label="F1-score", color="#45B7D1", edgecolor="white")
-ax.set_xticks(x); ax.set_xticklabels(class_names)
+ax.set_xticks(x)
+ax.set_xticklabels(class_names)
 ax.set_ylim(0, 1.1)
 ax.set_title("各类别指标", fontsize=13, fontweight="bold")
-ax.legend(fontsize=9); ax.grid(True, alpha=0.3, axis="y")
+ax.legend(fontsize=9)
+ax.grid(True, alpha=0.3, axis="y")
 
 # 扫描不同正则化强度下的逻辑回归准确率
 C_values_lr = [0.001, 0.01, 0.1, 1, 10, 100]
@@ -595,9 +607,11 @@ ax.plot(mlp_for_plot.loss_curve_, label="训练损失", color="#FF6B6B", linewid
 if hasattr(mlp_for_plot, "validation_scores_") and mlp_for_plot.validation_scores_:
     val_scores = [1 - s for s in mlp_for_plot.validation_scores_]
     ax.plot(val_scores, label="验证损失 (1-acc)", color="#45B7D1", linewidth=2, linestyle="--")
-ax.set_xlabel("迭代次数"); ax.set_ylabel("损失")
+ax.set_xlabel("迭代次数")
+ax.set_ylabel("损失")
 ax.set_title("MLP (32,16,8) 训练曲线", fontsize=13, fontweight="bold")
-ax.legend(); ax.grid(True, alpha=0.3)
+ax.legend()
+ax.grid(True, alpha=0.3)
 
 # MLP 混淆矩阵 (GridSearch最佳)
 ax = fig4.add_subplot(2, 3, 3)
@@ -640,7 +654,8 @@ for a in alpha_values:
     alpha_scores.append(accuracy_score(y_test, mlp_a.predict(X_test_scaled)))
 ax.plot([str(a) for a in alpha_values], alpha_scores, "o-", color="#4ECDC4",
         linewidth=2, markersize=10, markeredgecolor="white")
-ax.set_xlabel("L2正则强度 (alpha)"); ax.set_ylabel("测试准确率")
+ax.set_xlabel("L2正则强度 (alpha)")
+ax.set_ylabel("测试准确率")
 ax.set_title("正则强度对 MLP 影响", fontsize=13, fontweight="bold")
 ax.grid(True, alpha=0.3)
 for a, s in zip(alpha_values, alpha_scores):
@@ -660,7 +675,8 @@ for act in activations:
     act_scores.append(accuracy_score(y_test, mlp_act.predict(X_test_scaled)))
 colors_act = plt.cm.Set2(np.linspace(0, 1, len(activations)))
 bars = ax.bar(activations, [s * 100 for s in act_scores], color=colors_act, edgecolor="white")
-ax.set_ylabel("测试准确率 (%)"); ax.set_ylim(80, 105)
+ax.set_ylabel("测试准确率 (%)")
+ax.set_ylim(80, 105)
 ax.set_title("激活函数对比", fontsize=13, fontweight="bold")
 for bar, s in zip(bars, act_scores):
     ax.text(bar.get_x() + bar.get_width() / 2, bar.get_height() + 0.5,
@@ -728,10 +744,12 @@ ax.plot(n_estimators_range, rf_accs, "o-", color="#FF6B6B", linewidth=2,
         markersize=8, markeredgecolor="white", label="随机森林")
 ax.plot(n_estimators_range, gbdt_accs, "s-", color="#45B7D1", linewidth=2,
         markersize=8, markeredgecolor="white", label="梯度提升树")
-ax.set_xscale("log"); ax.set_xlabel("估计器数量")
+ax.set_xscale("log")
+ax.set_xlabel("估计器数量")
 ax.set_ylabel("测试准确率")
 ax.set_title("估计器数量影响对比", fontsize=13, fontweight="bold")
-ax.legend(); ax.grid(True, alpha=0.3)
+ax.legend()
+ax.grid(True, alpha=0.3)
 
 # 随机森林混淆矩阵
 ax = fig5.add_subplot(2, 3, 4)
@@ -757,7 +775,8 @@ for lr in lr_values:
     lr_accs.append(accuracy_score(y_test, gbdt_lr.predict(X_test_scaled)))
 ax.plot([str(lr) for lr in lr_values], lr_accs, "o-", color="#4ECDC4",
         linewidth=2, markersize=10, markeredgecolor="white")
-ax.set_xlabel("学习率"); ax.set_ylabel("测试准确率")
+ax.set_xlabel("学习率")
+ax.set_ylabel("测试准确率")
 ax.set_title("学习率对 GBDT 影响", fontsize=13, fontweight="bold")
 ax.grid(True, alpha=0.3)
 for lr, s in zip(lr_values, lr_accs):
@@ -794,9 +813,11 @@ for d in depths:
 ax.plot(list(depths), depth_accs_train, "o-", color="#FF6B6B", label="训练准确率")
 ax.plot(list(depths), depth_accs_test, "s-", color="#45B7D1", label="测试准确率")
 ax.axvline(x=3, color="gray", linestyle="--", alpha=0.5, label="max_depth=3")
-ax.set_xlabel("max_depth"); ax.set_ylabel("准确率")
+ax.set_xlabel("max_depth")
+ax.set_ylabel("准确率")
 ax.set_title("树深度对过拟合的影响", fontsize=13, fontweight="bold")
-ax.legend(); ax.grid(True, alpha=0.3)
+ax.legend()
+ax.grid(True, alpha=0.3)
 
 # 朴素贝叶�: 各类别高斯分布参数
 ax = fig6.add_subplot(2, 3, 4)
@@ -807,9 +828,12 @@ for i, cls in enumerate(class_names):
     ax.errorbar(range(4), theta[i], yerr=np.sqrt(sigma[i]),
                 fmt="o-", label=cls, capsize=5, capthick=2,
                 color=colors_pie[i], markersize=8)
-ax.set_xticks(range(4)); ax.set_xticklabels(feature_names, rotation=20, ha="right")
+ax.set_xticks(range(4))
+ax.set_xticklabels(feature_names, rotation=20, ha="right")
 ax.set_title("各类别特征均值 ± 标准差", fontsize=12, fontweight="bold")
-ax.set_ylabel("标准化值"); ax.legend(); ax.grid(True, alpha=0.3)
+ax.set_ylabel("标准化值")
+ax.legend()
+ax.grid(True, alpha=0.3)
 
 # 朴素贝叶斯混淆矩阵
 ax = fig6.add_subplot(2, 3, 5)
@@ -846,9 +870,11 @@ for k in k_values:
 ax.plot(list(k_values), k_accs, "o-", color="#45B7D1", linewidth=2, markersize=5, markeredgecolor="white")
 best_k = k_values[np.argmax(k_accs)]
 ax.axvline(x=best_k, color="#FF6B6B", linestyle="--", alpha=0.7, label=f"最佳k={best_k}")
-ax.set_xlabel("k (邻居数)"); ax.set_ylabel("测试准确率")
+ax.set_xlabel("k (邻居数)")
+ax.set_ylabel("测试准确率")
 ax.set_title("KNN: k值对准确率的影响", fontsize=13, fontweight="bold")
-ax.legend(); ax.grid(True, alpha=0.3)
+ax.legend()
+ax.grid(True, alpha=0.3)
 
 # KNN 混淆矩阵 (k=5)
 ax = fig7.add_subplot(2, 2, 2)
@@ -870,9 +896,11 @@ for label, layers, alpha in mlp_configs:
     m.fit(X_train_scaled, y_train)
     acc = accuracy_score(y_test, m.predict(X_test_scaled))
     ax.plot(m.loss_curve_, label=f"{label} (Acc={acc:.2%})", linewidth=1.5)
-ax.set_xlabel("迭代次数"); ax.set_ylabel("训练损失")
+ax.set_xlabel("迭代次数")
+ax.set_ylabel("训练损失")
 ax.set_title("不同 MLP 架构训练损失对比", fontsize=13, fontweight="bold")
-ax.legend(fontsize=8); ax.grid(True, alpha=0.3)
+ax.legend(fontsize=8)
+ax.grid(True, alpha=0.3)
 
 # 综合对比 - 交叉验证结果
 ax = fig7.add_subplot(2, 2, 4)
@@ -932,10 +960,12 @@ for name in results:
 x = np.arange(3); w = 0.1
 for idx, (name, f1s) in enumerate(f1_scores.items()):
     ax.bar(x + idx * w - w * (len(f1_scores) / 2), f1s, w, label=name, alpha=0.85, edgecolor="white")
-ax.set_xticks(x); ax.set_xticklabels(class_names)
+ax.set_xticks(x)
+ax.set_xticklabels(class_names)
 ax.set_ylim(0, 1.15)
 ax.set_title("各类别 F1-Score 对比", fontsize=13, fontweight="bold")
-ax.legend(fontsize=6, ncol=2); ax.grid(True, alpha=0.3, axis="y")
+ax.legend(fontsize=6, ncol=2)
+ax.grid(True, alpha=0.3, axis="y")
 
 # ROC曲线 (OvR)
 ax = fig8.add_subplot(gs8[1, :])
@@ -959,9 +989,11 @@ for (name, model), color in zip(roc_models.items(), colors_roc):
                 ax.plot(fpr, tpr, color=color, linewidth=2,
                         label=f"{name} (AUC={roc_auc:.3f})")
 ax.plot([0, 1], [0, 1], "k--", alpha=0.4)
-ax.set_xlabel("假正率 (FPR)"); ax.set_ylabel("真正率 (TPR)")
+ax.set_xlabel("假正率 (FPR)")
+ax.set_ylabel("真正率 (TPR)")
 ax.set_title("ROC 曲线对比 (OvR, 以 setosa 类为例)", fontsize=14, fontweight="bold")
-ax.legend(fontsize=8, ncol=2); ax.grid(True, alpha=0.3)
+ax.legend(fontsize=8, ncol=2)
+ax.grid(True, alpha=0.3)
 
 # 8d-g. 混淆矩阵一览
 cm_list = []
@@ -1026,7 +1058,6 @@ def benchmark_acc(models=None, Xtr=None, Xte=None, ytr=None, yte=None):
         m.fit(Xtr, ytr)
         accs[name] = accuracy_score(yte, m.predict(Xte))
     return accs
-
 
 
 # 实验 1: 特征消融
@@ -1210,7 +1241,6 @@ for name in preproc_models:
     u = preproc_results["未标准化"][name]
     delta = s - u
     print(f"    {name:　<12s}  标准化={s:.3f}  未标准化={u:.3f}  Δ={delta:+.3f}")
-
 
 
 # 可视化
