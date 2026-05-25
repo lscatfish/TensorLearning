@@ -10,6 +10,8 @@
 **.png
 **.jpg
 **.jpeg
+**.svg
+/iris/output/
 /minist/mnist/MNIST
 #**.pth
 
@@ -18,3 +20,4 @@ package-lock.json
 # Opencode
 opencode.json
 .opencode/
+iris/report.md
