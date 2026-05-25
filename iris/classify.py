@@ -445,7 +445,7 @@ ax = fig_svm.add_subplot(2, 2, 3)
 cm_svm = confusion_matrix(y_test, models["SVM (RBF核)"].predict(X_test_scaled))
 plt.rcParams["axes.unicode_minus"] = False
 ConfusionMatrixDisplay(cm_svm, display_labels=class_names).plot(
-    ax=ax, cmap="RdPu", colorbar=False, text_kw={"fontsize": 13})
+    ax=ax, cmap="Blues", colorbar=False, text_kw={"fontsize": 13})
 ax.set_title("混淆矩阵", fontsize=13, fontweight="bold")
 
 # 支持向量统计
@@ -503,7 +503,7 @@ ax = fig3.add_subplot(2, 3, 4)
 cm_lr = confusion_matrix(y_test, models["逻辑回归"].predict(X_test_scaled))
 plt.rcParams["axes.unicode_minus"] = False
 ConfusionMatrixDisplay(cm_lr, display_labels=class_names).plot(
-    ax=ax, cmap="RdYlBu", colorbar=False, text_kw={"fontsize": 13})
+    ax=ax, cmap="Blues", colorbar=False, text_kw={"fontsize": 13})
 ax.set_title("混淆矩阵 (测试集)", fontsize=13, fontweight="bold")
 
 ax = fig3.add_subplot(2, 3, 5)
@@ -726,7 +726,7 @@ ax = fig5.add_subplot(2, 3, 4)
 cm_rf = confusion_matrix(y_test, models["随机森林"].predict(X_test_scaled))
 plt.rcParams["axes.unicode_minus"] = False
 ConfusionMatrixDisplay(cm_rf, display_labels=class_names).plot(
-    ax=ax, cmap="YlGn", colorbar=False, text_kw={"fontsize": 13})
+    ax=ax, cmap="Blues", colorbar=False, text_kw={"fontsize": 13})
 ax.set_title("随机森林混淆矩阵", fontsize=13, fontweight="bold")
 
 # 梯度提升树混淆矩阵
@@ -734,7 +734,7 @@ ax = fig5.add_subplot(2, 3, 5)
 cm_gbdt = confusion_matrix(y_test, models["梯度提升树"].predict(X_test_scaled))
 plt.rcParams["axes.unicode_minus"] = False
 ConfusionMatrixDisplay(cm_gbdt, display_labels=class_names).plot(
-    ax=ax, cmap="PuBu", colorbar=False, text_kw={"fontsize": 13})
+    ax=ax, cmap="Blues", colorbar=False, text_kw={"fontsize": 13})
 ax.set_title("梯度提升树混淆矩阵", fontsize=13, fontweight="bold")
 
 # 梯度提升树学习率影响
@@ -814,7 +814,7 @@ ax = fig6.add_subplot(2, 3, 5)
 cm_gnb = confusion_matrix(y_test, models["高斯朴素贝叶斯"].predict(X_test_scaled))
 plt.rcParams["axes.unicode_minus"] = False
 ConfusionMatrixDisplay(cm_gnb, display_labels=class_names).plot(
-    ax=ax, cmap="OrRd", colorbar=False, text_kw={"fontsize": 13})
+    ax=ax, cmap="Blues", colorbar=False, text_kw={"fontsize": 13})
 ax.set_title("高斯朴素贝叶斯混淆矩阵", fontsize=13, fontweight="bold")
 
 # 决策树混淆矩阵
@@ -822,7 +822,7 @@ ax = fig6.add_subplot(2, 3, 6)
 cm_dt = confusion_matrix(y_test, models["决策树"].predict(X_test_scaled))
 plt.rcParams["axes.unicode_minus"] = False
 ConfusionMatrixDisplay(cm_dt, display_labels=class_names).plot(
-    ax=ax, cmap="YlOrBr", colorbar=False, text_kw={"fontsize": 13})
+    ax=ax, cmap="Blues", colorbar=False, text_kw={"fontsize": 13})
 ax.set_title("决策树 (d=3) 混淆矩阵", fontsize=13, fontweight="bold")
 
 plt.rcParams["axes.unicode_minus"] = False
@@ -858,7 +858,7 @@ ax = fig7.add_subplot(2, 2, 2)
 cm_knn = confusion_matrix(y_test, models["KNN (k=5)"].predict(X_test_scaled))
 plt.rcParams["axes.unicode_minus"] = False
 ConfusionMatrixDisplay(cm_knn, display_labels=class_names).plot(
-    ax=ax, cmap="BuPu", colorbar=False, text_kw={"fontsize": 13})
+    ax=ax, cmap="Blues", colorbar=False, text_kw={"fontsize": 13})
 ax.set_title(f"KNN (k=5) 混淆矩阵 (Acc={results['KNN (k=5)']:.2%})", fontsize=13, fontweight="bold")
 
 # MLP 不同架构的训练曲线对比
@@ -989,7 +989,7 @@ for idx, (name, cm) in enumerate(cm_list):
     ax = fig8.add_subplot(gs8[row, col])
     plt.rcParams["axes.unicode_minus"] = False
     ConfusionMatrixDisplay(cm, display_labels=class_names).plot(
-        ax=ax, cmap="YlOrRd", colorbar=False, text_kw={"fontsize": 10},
+        ax=ax, cmap="Blues", colorbar=False, text_kw={"fontsize": 10},
         im_kw={"vmin": 0, "vmax": 15})
     ax.set_title(name, fontsize=11, fontweight="bold")
 
