@@ -1341,126 +1341,80 @@ fig4.savefig("iris/output/ablation_04_preprocessing.svg", bbox_inches="tight")
 plt.close(fig4)
 
 # ============================================================
-# 图5: 综合总结
+# 5. 消融实验综合总结（文字输出）
 # ============================================================
-print("  [5/5] 消融实验综合总结...")
-fig5 = plt.figure(figsize=(20, 16))
-gs = GridSpec(2, 3, figure=fig5, hspace=0.35, wspace=0.3)
-fig5.suptitle("消融实验综合总结", fontsize=18, fontweight="bold")
+print("\n" + "=" * 60)
+print("5. 消融实验综合总结")
+print("=" * 60)
 
-# 5a. 每个模型最敏感的特征
-ax = fig5.add_subplot(gs[0, 0])
-ax.axis("off")
-summary_lines = ["特征消融 — 各模型最敏感特征:\n"]
+# 5a. 特征消融 — 各模型最敏感特征
+print("\n  [特征消融] 各模型最敏感的特征:")
 for name in model_names:
     deg = degradation[model_names.index(name)]
     worst_idx = np.argmax(deg)
-    summary_lines.append(
-        f"  {name:　<12s}  最怕丢失「{feature_names_abl[worst_idx]}」"
-        f"  (↓{deg[worst_idx]:.3f})"
-    )
-ax.text(0.05, 0.95, "\n".join(summary_lines), transform=ax.transAxes,
-        fontsize=10, fontfamily="monospace", verticalalignment="top",
-        bbox=dict(boxstyle="round,pad=0.5", facecolor="#f0f0f0", alpha=0.8))
+    print(f"    {name:　<12s}  最怕丢失「{feature_names_abl[worst_idx]}」 (↓{deg[worst_idx]:.3f})")
 
 # 5b. 数据量敏感度排名
-ax = fig5.add_subplot(gs[0, 1])
-ax.axis("off")
+print("\n  [数据量消融] 从 90% 减到 10% 的准确率下降:")
 drops = {name: data_abl_results[name][0] - data_abl_results[name][-1]
          for name in BENCHMARK_ABL}
-sorted_drops = sorted(drops.items(), key=lambda x: x[1], reverse=True)
-lines = ["数据量消融 — 从 90% 减到 10% 的准确率下降:\n"]
-for name, drop in sorted_drops:
-    lines.append(f"  {name:　<12s}  ↓{drop:.3f}")
-ax.text(0.05, 0.95, "\n".join(lines), transform=ax.transAxes,
-        fontsize=10, fontfamily="monospace", verticalalignment="top",
-        bbox=dict(boxstyle="round,pad=0.5", facecolor="#f0f0f0", alpha=0.8))
+for name, drop in sorted(drops.items(), key=lambda x: x[1], reverse=True):
+    print(f"    {name:　<12s}  ↓{drop:.3f}")
 
 # 5c. MLP 架构最佳配置
-ax = fig5.add_subplot(gs[0, 2])
-ax.axis("off")
 best_width = max(zip(width_names, width_accs), key=lambda x: x[1])
 best_depth = max(zip(depth_names, depth_accs), key=lambda x: x[1])
 best_reg = max(zip(reg_names, reg_accs), key=lambda x: x[1])
 best_act = max(zip(act_names, act_accs), key=lambda x: x[1])
-lines = [
-    "MLP 架构消融 — 最佳配置:\n",
-    f"  宽度: {best_width[0]}  ({best_width[1]:.2%})",
-    f"  深度: {best_depth[0]}  ({best_depth[1]:.2%})",
-    f"  正则: {best_reg[0]}  ({best_reg[1]:.2%})",
-    f"  激活: {best_act[0]}  ({best_act[1]:.2%})\n",
-    "结论:",
-    "  Iris 小数据下，浅宽网络>深窄",
-    "  适度 L2 正则防止过拟合",
-    "  ReLU > tanh > sigmoid",
-]
-ax.text(0.05, 0.95, "\n".join(lines), transform=ax.transAxes,
-        fontsize=10, fontfamily="monospace", verticalalignment="top",
-        bbox=dict(boxstyle="round,pad=0.5", facecolor="#f0f0f0", alpha=0.8))
+print(f"\n  [MLP 架构消融] 最佳配置:")
+print(f"    宽度: {best_width[0]}  ({best_width[1]:.2%})")
+print(f"    深度: {best_depth[0]}  ({best_depth[1]:.2%})")
+print(f"    正则: {best_reg[0]}  ({best_reg[1]:.2%})")
+print(f"    激活: {best_act[0]}  ({best_act[1]:.2%})")
+print("    结论: Iris 小数据下浅宽网络优于深窄; 适度 L2 正则; ReLU > tanh > sigmoid")
 
-# 5d. 标准化受益最大的模型
-ax = fig5.add_subplot(gs[1, 0])
-ax.axis("off")
+# 5d. 标准化受益排名
 sorted_delta = sorted(
     [(n, preproc_results["标准化"][n] - preproc_results["未标准化"][n])
      for n in preproc_models],
     key=lambda x: x[1], reverse=True
 )
-lines = ["预处理消融 — 标准化受益排名:\n"]
-pos, neg = [], []
+print(f"\n  [预处理消融] 标准化受益排名:")
 for n, d in sorted_delta:
-    lines.append(f"  {n:　<12s}  Δ={d:+.3f}")
-    (pos if d >= 0 else neg).append((n, d))
-lines.append("")
-if pos:
-    lines.append(f"  受益最大: {pos[0][0]} (+{pos[0][1]:.3f})")
-if neg:
-    lines.append(f"  受损: {neg[0][0]} ({neg[0][1]:.3f})")
-lines.append("  不敏感: 树模型 (RF/DT/GBDT)")
-ax.text(0.05, 0.95, "\n".join(lines), transform=ax.transAxes,
-        fontsize=10, fontfamily="monospace", verticalalignment="top",
-        bbox=dict(boxstyle="round,pad=0.5", facecolor="#f0f0f0", alpha=0.8))
+    print(f"    {n:　<12s}  Δ={d:+.3f}")
+print("    不敏感: 树模型 (RF/DT/GBDT)")
 
-# 5e. 花瓣长 vs 花瓣宽 — 谁是真正关键特征
-ax = fig5.add_subplot(gs[1, 1:])
-ax.axis("off")
-lines = [
-    "===== 消融实验核心结论 =====\n",
-    "1. 特征消融",
-    "   • 花瓣长 (idx=2) 和花瓣宽 (idx=3) 是几乎所有模型的",
-    "     最关键特征，移除后 SVM 和 MLP 退化最严重",
-    "   • 花萼特征移除后影响较小（setosa 靠花瓣即可区分）",
-    "",
-    "2. 数据量消融",
-    "   • KNN 和朴素贝叶斯在小数据量下退化最快",
-    "   • SVM 和决策树对数据量相对不敏感",
-    "   • 所有模型在 50% 数据以上基本达到饱和",
-    "",
-    "3. MLP 架构",
-    "   • 单隐藏层 16~32 神经元足够（Iris 只有 150 条数据）",
-    "   • 深度超过 2 层反而容易过拟合",
-    "   • L2 正则 alpha=0.001 是最佳平衡点",
-    "   • ReLU > tanh > logistic（logistic 饱和问题严重）",
-    "",
-    "4. 预处理",
-    "   • SVM、KNN、MLP、逻辑回归依赖标准化",
-    "   • 树模型（RF/DT/GBDT）基本不受量纲影响",
-    "   • 朴素贝叶斯标准化后略有下降（方差估计受影响）",
-]
-ax.text(0.02, 0.95, "\n".join(lines), transform=ax.transAxes,
-        fontsize=11, fontfamily="monospace", verticalalignment="top",
-        bbox=dict(boxstyle="round,pad=0.8", facecolor="#e8f4f8", alpha=0.9))
+# 5e. 核心结论
+print(f"""\n  +----------------------------------------------------------+
+  |  消融实验核心结论                                       |
+  +----------------------------------------------------------+
+  | 1. 特征消融                                             |
+  |    * 花瓣长和花瓣宽是几乎所有模型的最关键特征            |
+  |    * 移除后 SVM 和 MLP 退化最严重                        |
+  |    * 花萼特征移除后影响较小（setosa 靠花瓣即可区分）    |
+  |                                                         |
+  | 2. 数据量消融                                           |
+  |    * KNN 和朴素贝叶斯在小数据量下退化最快                |
+  |    * SVM 和决策树对数据量相对不敏感                      |
+  |    * 所有模型在 50% 数据以上基本达到饱和                 |
+  |                                                         |
+  | 3. MLP 架构                                             |
+  |    * 单隐藏层 16~32 神经元足够（Iris 只有 150 条数据）   |
+  |    * 深度超过 2 层反而容易过拟合                         |
+  |    * L2 正则 alpha=0.001 是最佳平衡点                    |
+  |    * ReLU > tanh > logistic（logistic 饱和问题严重）    |
+  |                                                         |
+  | 4. 预处理                                               |
+  |    * SVM、KNN、MLP、逻辑回归依赖标准化                   |
+  |    * 树模型（RF/DT/GBDT）基本不受量纲影响                |
+  |    * 朴素贝叶斯标准化后略有下降（方差估计受影响）        |
+  +----------------------------------------------------------+""")
 
-fig5.tight_layout()
-fig5.savefig("iris/output/ablation_05_summary.svg", bbox_inches="tight")
-plt.close(fig5)
-
-
-print("\n已完成！所有 SVG 图表保存在 iris/output/:")
-print("  ablation_01_feature.svg        — 特征消融热力图")
-print("  ablation_02_data.svg           — 数据量消融曲线")
-print("  ablation_03_mlp_architecture.svg — MLP 架构消融")
-print("  ablation_04_preprocessing.svg  — 预处理消融对比")
-print("  ablation_05_summary.svg        — 综合总结")
+print("\n  图表已保存至 iris/output/:")
+print("    ablation_01_feature.svg        — 特征消融热力图")
+print("    ablation_02_data.svg           — 数据量消融曲线")
+print("    ablation_03_mlp_architecture.svg — MLP 架构消融")
+print("    ablation_04_preprocessing.svg  — 预处理消融对比")
+print("    （综合总结已在上文文字输出）")
 
 print("\n完成！")
