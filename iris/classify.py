@@ -3,7 +3,6 @@ import numpy as np
 import matplotlib
 import platform
 
-# 兜底过滤：直接屏蔽U+2212相关警告，彻底消除弹窗
 warnings.filterwarnings("ignore", category=UserWarning, message=".*Glyph.*U+2212.*")
 warnings.filterwarnings("ignore")
 
@@ -29,7 +28,6 @@ matplotlib.rcParams.update({
 import matplotlib.pyplot as plt
 import matplotlib.font_manager as fm
 
-# 强制重建字体缓存，避免旧缓存导致配置失效
 from matplotlib.gridspec import GridSpec
 from sklearn.model_selection import train_test_split, cross_val_score, GridSearchCV
 from sklearn.preprocessing import StandardScaler, label_binarize
@@ -60,9 +58,7 @@ os.makedirs("iris/output", exist_ok=True)
 
 # 1. 数据加载与预处理
 
-print("=" * 60)
 print("1. 加载 Iris 数据集")
-print("=" * 60)
 
 DATA_PATH = os.path.join(os.path.dirname(__file__), "iris.data")
 data = np.loadtxt(DATA_PATH, delimiter=",", dtype=str)
@@ -95,7 +91,6 @@ print(f"  训练集: {X_train.shape[0]} 条, 测试集: {X_test.shape[0]} 条")
 
 print("\n" + "=" * 60)
 print("2. 机器学习模型训练与评估")
-print("=" * 60)
 
 results = {}
 models = {
@@ -163,7 +158,6 @@ for name, model in models.items():
 
 print("\n" + "=" * 60)
 print("3. MLP 超参数调优 (GridSearchCV)")
-print("=" * 60)
 
 param_grid = {
     "hidden_layer_sizes": [(16, 8), (32, 16, 8), (64, 32), (32, 8)],
@@ -196,7 +190,6 @@ print(f"  {classification_report(y_test, y_pred_best_mlp, target_names=class_nam
 
 print("\n" + "=" * 60)
 print("4. 5折交叉验证对比")
-print("=" * 60)
 
 cv_models = {
     "逻辑回归": LogisticRegression(multi_class="multinomial", solver="lbfgs", max_iter=1000, random_state=42),
@@ -218,7 +211,6 @@ for name, model in cv_models.items():
 
 print("\n" + "=" * 60)
 print("5. 综合对比与分析")
-print("=" * 60)
 
 print("\n  各方法测试准确率排名:")
 sorted_results = sorted(results.items(), key=lambda x: x[1], reverse=True)
@@ -1118,9 +1110,7 @@ def benchmark_acc(models=None, Xtr=None, Xte=None, ytr=None, yte=None):
 
 # 实验 1: 特征消融
 
-print("=" * 60)
 print("实验 1/4: 特征消融 — 逐一移除特征")
-print("=" * 60)
 
 feat_abl_results = {}
 for name in BENCHMARK_ABL:
@@ -1149,7 +1139,6 @@ print(f"  基准（全特征）— {', '.join(f'{n}: {base_feat[n]:.3f}' for n i
 
 print("\n" + "=" * 60)
 print("实验 2/4: 数据量消融 — 逐步减少训练数据")
-print("=" * 60)
 
 TRAIN_RATIOS = [0.9, 0.7, 0.5, 0.3, 0.1]
 data_abl_results = {name: [] for name in BENCHMARK_ABL}
@@ -1174,7 +1163,6 @@ for ratio in TRAIN_RATIOS:
 
 print("\n" + "=" * 60)
 print("实验 3/4: MLP 架构消融 — 逐层裁剪")
-print("=" * 60)
 
 ARCH_CONFIGS = [
     ("宽度扫描", [
@@ -1259,7 +1247,6 @@ arch_results["act"] = (act_names, act_accs)
 
 print("\n" + "=" * 60)
 print("实验 4/4: 预处理消融 — 标准化 on/off")
-print("=" * 60)
 
 # 需要单独定义不受量纲影响的模型（树模型不需要标准化）
 preproc_models = {
@@ -1514,7 +1501,6 @@ plt.close(fig4)
 
 print("\n" + "=" * 60)
 print("5. 消融实验综合总结")
-print("=" * 60)
 
 # 特征消融 — 各模型最敏感特征
 print("\n  [特征消融] 各模型最敏感的特征:")
