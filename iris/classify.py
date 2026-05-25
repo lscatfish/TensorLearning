@@ -91,9 +91,9 @@ import os
 
 os.makedirs("iris/output", exist_ok=True)
 
-# ============================================================
+
 # 1. 数据加载与预处理
-# ============================================================
+
 print("=" * 60)
 print("1. 加载 Iris 数据集")
 print("=" * 60)
@@ -124,9 +124,9 @@ X_test_scaled = scaler.transform(X_test)
 
 print(f"  训练集: {X_train.shape[0]} 条, 测试集: {X_test.shape[0]} 条")
 
-# ============================================================
+
 # 2. 模型定义与训练
-# ============================================================
+
 print("\n" + "=" * 60)
 print("2. 机器学习模型训练与评估")
 print("=" * 60)
@@ -194,9 +194,9 @@ for name, model in models.items():
     print(f"\n  [{name}] 测试准确率: {acc:.4f}")
     print(f"  {classification_report(y_test, y_pred, target_names=class_names, zero_division=0)}")
 
-# ============================================================
+
 # 3. MLP 深入调优 — GridSearch
-# ============================================================
+
 print("\n" + "=" * 60)
 print("3. MLP 超参数调优 (GridSearchCV)")
 print("=" * 60)
@@ -227,9 +227,9 @@ print(f"  最佳交叉验证分数: {grid_search.best_score_:.4f}")
 print(f"  测试准确率: {best_mlp_acc:.4f}")
 print(f"  {classification_report(y_test, y_pred_best_mlp, target_names=class_names, zero_division=0)}")
 
-# ============================================================
+
 # 4. 交叉验证对比
-# ============================================================
+
 print("\n" + "=" * 60)
 print("4. 5折交叉验证对比")
 print("=" * 60)
@@ -249,9 +249,9 @@ for name, model in cv_models.items():
     cv_results[name] = (scores.mean(), scores.std())
     print(f"  [{name}] CV准确率: {scores.mean():.4f} ± {scores.std():.4f}")
 
-# ============================================================
+
 # 5. 结果汇总与分析
-# ============================================================
+
 print("\n" + "=" * 60)
 print("5. 综合对比与分析")
 print("=" * 60)
@@ -280,9 +280,9 @@ print(f"""\n  +--------------------------------------------------------------+
   |   - 但特征区分度高, 仍然有竞争力                           |
   +--------------------------------------------------------------+""")
 
-# ============================================================
+
 # 6. 可视化
-# ============================================================
+
 print("\n6. 生成可视化图表...")
 
 feature_names = ["花萼长 (cm)", "花萼宽 (cm)", "花瓣长 (cm)", "花瓣宽 (cm)"]
@@ -311,9 +311,9 @@ X2_test = X_test_scaled[:, FEAT2]
 X2_all = np.vstack([X2_train, X2_test])
 y2_all = np.concatenate([y_train, y_test])
 
-# ============================================================
-# 图1: 数据探索
-# ============================================================
+
+# 数据探索
+
 print("  [1/8] 数据探索...")
 fig1 = plt.figure(figsize=(16, 12))
 fig1.suptitle("Iris 数据集探索", fontsize=18, fontweight="bold", y=0.98)
@@ -376,9 +376,9 @@ ax.grid(True, alpha=0.3, axis="y")
 fig1.savefig("iris/output/01_data_exploration_advanced.svg", bbox_inches="tight")
 plt.close(fig1)
 
-# ============================================================
-# 图2: 决策边界对比 — 8个子图
-# ============================================================
+
+# 决策边界对比 — 8个子图
+
 print("  [2/8] 决策边界对比 (8模型)...")
 fig2, axes = plt.subplots(2, 4, figsize=(24, 12))
 fig2.suptitle("各模型决策边界对比 (花瓣长 vs 花瓣宽)", fontsize=16, fontweight="bold")
@@ -415,10 +415,86 @@ for idx, (name, model) in enumerate(boundary_models.items()):
 fig2.savefig("iris/output/02_decision_boundaries_advanced.svg", bbox_inches="tight")
 plt.close(fig2)
 
-# ============================================================
-# 图3: 逻辑回归分析
-# ============================================================
-print("  [3/8] 逻辑回归分析...")
+# SVM 深入分析：C 和 gamma 对 RBF 核分类效果的影响
+print("  [3/9] SVM 深入分析...")
+fig_svm = plt.figure(figsize=(16, 10))
+fig_svm.suptitle("SVM (RBF核) — 参数影响分析", fontsize=16, fontweight="bold")
+
+# 计算不同 C 值下的 SVM 准确率
+C_values = [0.01, 0.1, 1, 10, 100]
+c_accs = []
+for c in C_values:
+    sm = SVC(kernel="rbf", C=c, gamma="scale", random_state=42)
+    sm.fit(X_train_scaled, y_train)
+    c_accs.append(accuracy_score(y_test, sm.predict(X_test_scaled)))
+
+# 绘制 C 值影响曲线
+ax = fig_svm.add_subplot(2, 2, 1)
+ax.semilogx(C_values, c_accs, "o-", color="#FF6B6B", linewidth=2, markersize=8, markeredgecolor="white")
+ax.set_xlabel("C (正则化参数)")
+ax.set_ylabel("测试准确率")
+ax.set_title("C 值对准确率的影响", fontsize=13, fontweight="bold")
+ax.grid(True, alpha=0.3)
+for c, a in zip(C_values, c_accs):
+    ax.annotate(f"{a:.3f}", (c, a), textcoords="offset points", xytext=(0, 8),
+                ha="center", fontsize=9)
+
+# 计算不同 gamma 值下的 SVM 准确率
+gamma_values = [0.001, 0.01, 0.1, 1, "scale", "auto"]
+gamma_accs = []
+g_labels = []
+for g in gamma_values:
+    try:
+        sm = SVC(kernel="rbf", C=1.0, gamma=g, random_state=42)
+        sm.fit(X_train_scaled, y_train)
+        gamma_accs.append(accuracy_score(y_test, sm.predict(X_test_scaled)))
+        g_labels.append(str(g))
+    except Exception:
+        pass
+
+# 绘制 gamma 影响对比
+ax = fig_svm.add_subplot(2, 2, 2)
+colors_g = plt.cm.viridis(np.linspace(0, 1, len(gamma_accs)))
+bars = ax.bar(range(len(gamma_accs)), gamma_accs, color=colors_g, edgecolor="white")
+ax.set_xticks(range(len(gamma_accs)))
+ax.set_xticklabels(g_labels)
+ax.set_xlabel("gamma")
+ax.set_ylabel("测试准确率")
+ax.set_title("gamma 对准确率的影响 (C=1.0)", fontsize=13, fontweight="bold")
+ax.set_ylim(0, 1.05)
+ax.grid(True, alpha=0.3, axis="y")
+for bar, a in zip(bars, gamma_accs):
+    ax.text(bar.get_x() + bar.get_width() / 2, bar.get_height() + 0.01,
+            f"{a:.3f}", ha="center", fontsize=8, fontweight="bold")
+
+# SVM 混淆矩阵
+ax = fig_svm.add_subplot(2, 2, 3)
+cm_svm = confusion_matrix(y_test, models["SVM (RBF核)"].predict(X_test_scaled))
+ConfusionMatrixDisplay(cm_svm, display_labels=class_names).plot(
+    ax=ax, cmap="RdPu", colorbar=False, text_kw={"fontsize": 13})
+ax.set_title("混淆矩阵", fontsize=13, fontweight="bold")
+
+# 支持向量统计
+ax = fig_svm.add_subplot(2, 2, 4)
+ax.axis("off")
+svm_model = models["SVM (RBF核)"]
+n_sv = svm_model.n_support_
+sv_lines = ["SVM 支持向量信息:", "", f"  总支持向量数: {sum(n_sv)}"]
+for i, cls in enumerate(class_names):
+    sv_lines.append(f"  {cls}: {n_sv[i]} 个")
+sv_text = "\n".join(sv_lines)
+ax.text(0.05, 0.95, sv_text, transform=ax.transAxes, fontsize=11,
+        verticalalignment="top",
+        bbox=dict(boxstyle="round,pad=0.5", facecolor="#f0f0f0", alpha=0.8))
+
+fig_svm.savefig("iris/output/svm_analysis.svg", bbox_inches="tight")
+plt.close(fig_svm)
+
+
+
+# 逻辑回归分析
+
+print("  [4/9] 逻辑回归分析...")
 fig3 = plt.figure(figsize=(16, 10))
 fig3.suptitle("逻辑回归 — 详细分析", fontsize=16, fontweight="bold")
 
@@ -465,28 +541,36 @@ ax.set_ylim(0, 1.1)
 ax.set_title("各类别指标", fontsize=13, fontweight="bold")
 ax.legend(fontsize=9); ax.grid(True, alpha=0.3, axis="y")
 
+# 扫描不同正则化强度下的逻辑回归准确率
+C_values_lr = [0.001, 0.01, 0.1, 1, 10, 100]
+c_lr_accs = []
+for c in C_values_lr:
+    lr_c = LogisticRegression(multi_class="multinomial", solver="lbfgs", C=c, max_iter=1000, random_state=42)
+    lr_c.fit(X_train_scaled, y_train)
+    c_lr_accs.append(accuracy_score(y_test, lr_c.predict(X_test_scaled)))
+
+# 绘制正则化强度影响曲线
 ax = fig3.add_subplot(2, 3, 6)
-proba = models["逻辑回归"].predict_proba(X_test_scaled)
-for i in range(3):
-    mask = y_test == i
-    if mask.sum() > 0:
-        ax.hist(proba[mask, i], bins=15, alpha=0.5, label=f"真实: {class_names[i]}",
-                color=colors_pie[i], edgecolor="white")
-ax.set_xlabel("预测概率"); ax.set_ylabel("样本数")
-ax.set_title("各类别预测概率分布", fontsize=13, fontweight="bold")
-ax.legend(fontsize=7); ax.grid(True, alpha=0.3)
+ax.semilogx(C_values_lr, c_lr_accs, "o-", color="#45B7D1", linewidth=2, markersize=8, markeredgecolor="white")
+ax.set_xlabel("C (正则化强度)")
+ax.set_ylabel("测试准确率")
+ax.set_title("C 值对逻辑回归的影响", fontsize=13, fontweight="bold")
+ax.grid(True, alpha=0.3)
+for c, a in zip(C_values_lr, c_lr_accs):
+    ax.annotate(f"{a:.3f}", (c, a), textcoords="offset points", xytext=(0, 8),
+                ha="center", fontsize=8)
 
 fig3.savefig("iris/output/03_logistic_regression_advanced.svg", bbox_inches="tight")
 plt.close(fig3)
 
-# ============================================================
-# 图4: MLP 深入分析
-# ============================================================
-print("  [4/8] MLP 深入分析...")
+
+# MLP 深入分析
+
+print("  [5/9] MLP 深入分析...")
 fig4 = plt.figure(figsize=(18, 12))
 fig4.suptitle("MLP (多层感知器) — 深入分析", fontsize=16, fontweight="bold")
 
-# 4a. 不同架构准确率对比
+# 不同架构准确率对比
 ax = fig4.add_subplot(2, 3, 1)
 arch_names = ["MLP (16,8)", "MLP (32,16,8)", "MLP (64,32)", "MLP (GridSearch最佳)"]
 arch_accs = [results.get(n, 0) for n in arch_names]
@@ -500,7 +584,7 @@ for bar, acc in zip(bars, arch_accs):
             f"{acc:.2%}", va="center", fontsize=10, fontweight="bold")
 ax.grid(True, alpha=0.3, axis="x")
 
-# 4b. MLP 损失曲线
+# MLP 损失曲线
 ax = fig4.add_subplot(2, 3, 2)
 mlp_for_plot = MLPClassifier(
     hidden_layer_sizes=(32, 16, 8), activation="relu", solver="adam",
@@ -515,14 +599,14 @@ ax.set_xlabel("迭代次数"); ax.set_ylabel("损失")
 ax.set_title("MLP (32,16,8) 训练曲线", fontsize=13, fontweight="bold")
 ax.legend(); ax.grid(True, alpha=0.3)
 
-# 4c. MLP 混淆矩阵 (GridSearch最佳)
+# MLP 混淆矩阵 (GridSearch最佳)
 ax = fig4.add_subplot(2, 3, 3)
 cm_mlp = confusion_matrix(y_test, y_pred_best_mlp)
 ConfusionMatrixDisplay(cm_mlp, display_labels=class_names).plot(
     ax=ax, cmap="Blues", colorbar=False, text_kw={"fontsize": 13})
 ax.set_title(f"MLP (GridSearch最佳) 混淆矩阵\nacc={best_mlp_acc:.2%}", fontsize=12, fontweight="bold")
 
-# 4d. GridSearch 热力图 (alpha vs hidden_layer_sizes)
+# GridSearch 热力图 (alpha vs hidden_layer_sizes)
 ax = fig4.add_subplot(2, 3, 4)
 cv_results_grid = grid_search.cv_results_
 mean_scores = cv_results_grid["mean_test_score"]
@@ -543,7 +627,7 @@ for i in range(score_matrix.shape[0]):
                 color="white" if score_matrix[i, j] > 0.95 else "black")
 fig4.colorbar(im, ax=ax, shrink=0.8)
 
-# 4e. 不同 alpha 的影响
+# 不同 alpha 的影响
 ax = fig4.add_subplot(2, 3, 5)
 alpha_values = [0.0001, 0.001, 0.01, 0.1, 1.0]
 alpha_scores = []
@@ -563,7 +647,7 @@ for a, s in zip(alpha_values, alpha_scores):
     ax.annotate(f"{s:.3f}", (str(a), s), textcoords="offset points",
                 xytext=(0, 8), ha="center", fontsize=9)
 
-# 4f. activation 函数对比
+# activation 函数对比
 ax = fig4.add_subplot(2, 3, 6)
 activations = ["relu", "tanh", "logistic"]
 act_scores = []
@@ -586,14 +670,14 @@ ax.grid(True, alpha=0.3, axis="y")
 fig4.savefig("iris/output/04_mlp_analysis.svg", bbox_inches="tight")
 plt.close(fig4)
 
-# ============================================================
-# 图5: 随机森林 + 梯度提升树对比
-# ============================================================
-print("  [5/8] 集成方法分析...")
+
+# 随机森林 + 梯度提升树对比
+
+print("  [6/9] 集成方法分析...")
 fig5 = plt.figure(figsize=(18, 12))
 fig5.suptitle("集成方法 — 随机森林 vs 梯度提升树", fontsize=16, fontweight="bold")
 
-# 5a. 特征重要性对比
+# 特征重要性对比
 ax = fig5.add_subplot(2, 3, 1)
 rf = models["随机森林"]
 importances_rf = rf.feature_importances_
@@ -610,7 +694,7 @@ for bar, val in zip(bars, importances_rf[indices_rf]):
             f"{val:.4f}", ha="center", fontweight="bold")
 ax.grid(True, alpha=0.3, axis="y")
 
-# 5b. 梯度提升树特征重要性
+# 梯度提升树特征重要性
 ax = fig5.add_subplot(2, 3, 2)
 gbdt = models["梯度提升树"]
 importances_gbdt = gbdt.feature_importances_
@@ -627,7 +711,7 @@ for bar, val in zip(bars, importances_gbdt[indices_gbdt]):
             f"{val:.4f}", ha="center", fontweight="bold")
 ax.grid(True, alpha=0.3, axis="y")
 
-# 5c. 树数量影响对比
+# 树数量影响对比
 ax = fig5.add_subplot(2, 3, 3)
 n_estimators_range = [1, 5, 10, 20, 50, 100, 200]
 rf_accs, gbdt_accs = [], []
@@ -649,21 +733,21 @@ ax.set_ylabel("测试准确率")
 ax.set_title("估计器数量影响对比", fontsize=13, fontweight="bold")
 ax.legend(); ax.grid(True, alpha=0.3)
 
-# 5d. 随机森林混淆矩阵
+# 随机森林混淆矩阵
 ax = fig5.add_subplot(2, 3, 4)
 cm_rf = confusion_matrix(y_test, models["随机森林"].predict(X_test_scaled))
 ConfusionMatrixDisplay(cm_rf, display_labels=class_names).plot(
     ax=ax, cmap="YlGn", colorbar=False, text_kw={"fontsize": 13})
 ax.set_title("随机森林混淆矩阵", fontsize=13, fontweight="bold")
 
-# 5e. 梯度提升树混淆矩阵
+# 梯度提升树混淆矩阵
 ax = fig5.add_subplot(2, 3, 5)
 cm_gbdt = confusion_matrix(y_test, models["梯度提升树"].predict(X_test_scaled))
 ConfusionMatrixDisplay(cm_gbdt, display_labels=class_names).plot(
     ax=ax, cmap="PuBu", colorbar=False, text_kw={"fontsize": 13})
 ax.set_title("梯度提升树混淆矩阵", fontsize=13, fontweight="bold")
 
-# 5f. 梯度提升树学习率影响
+# 梯度提升树学习率影响
 ax = fig5.add_subplot(2, 3, 6)
 lr_values = [0.01, 0.05, 0.1, 0.2, 0.5, 1.0]
 lr_accs = []
@@ -683,14 +767,14 @@ for lr, s in zip(lr_values, lr_accs):
 fig5.savefig("iris/output/05_ensemble_methods.svg", bbox_inches="tight")
 plt.close(fig5)
 
-# ============================================================
-# 图6: 决策树可视化 + 朴素贝叶斯分析
-# ============================================================
-print("  [6/8] 决策树与朴素贝叶斯分析...")
+
+# 决策树可视化 + 朴素贝叶斯分析
+
+print("  [7/9] 决策树与朴素贝叶斯分析...")
 fig6 = plt.figure(figsize=(18, 12))
 fig6.suptitle("决策树 & 高斯朴素贝叶斯", fontsize=16, fontweight="bold")
 
-# 6a. 决策树可视化 (训练全部4个特征)
+# 决策树可视化 (训练全部4个特征)
 ax = fig6.add_subplot(2, 3, (1, 2))
 dt_viz = DecisionTreeClassifier(max_depth=3, random_state=42)
 dt_viz.fit(X_train_scaled, y_train)
@@ -698,7 +782,7 @@ plot_tree(dt_viz, feature_names=feature_names, class_names=list(class_names),
           filled=True, rounded=True, ax=ax, fontsize=9)
 ax.set_title("决策树 (max_depth=3)", fontsize=13, fontweight="bold")
 
-# 6b. 不同深度的影响
+# 不同深度的影响
 ax = fig6.add_subplot(2, 3, 3)
 depths = range(1, 11)
 depth_accs_train, depth_accs_test = [], []
@@ -714,7 +798,7 @@ ax.set_xlabel("max_depth"); ax.set_ylabel("准确率")
 ax.set_title("树深度对过拟合的影响", fontsize=13, fontweight="bold")
 ax.legend(); ax.grid(True, alpha=0.3)
 
-# 6c. 朴素贝叶�: 各类别高斯分布参数
+# 朴素贝叶�: 各类别高斯分布参数
 ax = fig6.add_subplot(2, 3, 4)
 gnb = models["高斯朴素贝叶斯"]
 theta = gnb.theta_
@@ -727,14 +811,14 @@ ax.set_xticks(range(4)); ax.set_xticklabels(feature_names, rotation=20, ha="righ
 ax.set_title("各类别特征均值 ± 标准差", fontsize=12, fontweight="bold")
 ax.set_ylabel("标准化值"); ax.legend(); ax.grid(True, alpha=0.3)
 
-# 6d. 朴素贝叶斯混淆矩阵
+# 朴素贝叶斯混淆矩阵
 ax = fig6.add_subplot(2, 3, 5)
 cm_gnb = confusion_matrix(y_test, models["高斯朴素贝叶斯"].predict(X_test_scaled))
 ConfusionMatrixDisplay(cm_gnb, display_labels=class_names).plot(
     ax=ax, cmap="OrRd", colorbar=False, text_kw={"fontsize": 13})
 ax.set_title("高斯朴素贝叶斯混淆矩阵", fontsize=13, fontweight="bold")
 
-# 6e. 决策树混淆矩阵
+# 决策树混淆矩阵
 ax = fig6.add_subplot(2, 3, 6)
 cm_dt = confusion_matrix(y_test, models["决策树"].predict(X_test_scaled))
 ConfusionMatrixDisplay(cm_dt, display_labels=class_names).plot(
@@ -744,14 +828,14 @@ ax.set_title("决策树 (d=3) 混淆矩阵", fontsize=13, fontweight="bold")
 fig6.savefig("iris/output/06_tree_nb_analysis.svg", bbox_inches="tight")
 plt.close(fig6)
 
-# ============================================================
-# 图7: KNN + MLP 训练曲线对比
-# ============================================================
-print("  [7/8] KNN + MLP 训练曲线对比...")
+
+# KNN + MLP 训练曲线对比
+
+print("  [8/9] KNN + MLP 训练曲线对比...")
 fig7 = plt.figure(figsize=(16, 10))
 fig7.suptitle("KNN 与 MLP — 详细分析", fontsize=16, fontweight="bold")
 
-# 7a. KNN k值扫描
+# KNN k值扫描
 ax = fig7.add_subplot(2, 2, 1)
 k_values = range(1, 31)
 k_accs = []
@@ -766,14 +850,14 @@ ax.set_xlabel("k (邻居数)"); ax.set_ylabel("测试准确率")
 ax.set_title("KNN: k值对准确率的影响", fontsize=13, fontweight="bold")
 ax.legend(); ax.grid(True, alpha=0.3)
 
-# 7b. KNN 混淆矩阵 (k=5)
+# KNN 混淆矩阵 (k=5)
 ax = fig7.add_subplot(2, 2, 2)
 cm_knn = confusion_matrix(y_test, models["KNN (k=5)"].predict(X_test_scaled))
 ConfusionMatrixDisplay(cm_knn, display_labels=class_names).plot(
     ax=ax, cmap="BuPu", colorbar=False, text_kw={"fontsize": 13})
 ax.set_title(f"KNN (k=5) 混淆矩阵 (Acc={results['KNN (k=5)']:.2%})", fontsize=13, fontweight="bold")
 
-# 7c. MLP 不同架构的训练曲线对比
+# MLP 不同架构的训练曲线对比
 ax = fig7.add_subplot(2, 2, 3)
 mlp_configs = [
     ("MLP (16,8)", (16, 8), 0.001),
@@ -790,7 +874,7 @@ ax.set_xlabel("迭代次数"); ax.set_ylabel("训练损失")
 ax.set_title("不同 MLP 架构训练损失对比", fontsize=13, fontweight="bold")
 ax.legend(fontsize=8); ax.grid(True, alpha=0.3)
 
-# 7d. 综合对比 - 交叉验证结果
+# 综合对比 - 交叉验证结果
 ax = fig7.add_subplot(2, 2, 4)
 cv_names = list(cv_results.keys())
 cv_means = [cv_results[n][0] * 100 for n in cv_names]
@@ -809,16 +893,16 @@ ax.grid(True, alpha=0.3, axis="x")
 fig7.savefig("iris/output/07_knn_mlp_curves.svg", bbox_inches="tight")
 plt.close(fig7)
 
-# ============================================================
-# 图8: 综合对比总结
-# ============================================================
-print("  [8/8] 综合总结图...")
+
+# 综合对比总结
+
+print("  [9/9] 综合总结图...")
 fig8 = plt.figure(figsize=(22, 16))
 fig8.suptitle("Iris 鸢尾花分类 — 8种方法综合对比", fontsize=18, fontweight="bold")
 
 gs8 = GridSpec(4, 4, figure=fig8, hspace=0.5, wspace=0.4)
 
-# 8a. 准确率柱状图
+# 准确率柱状图
 ax = fig8.add_subplot(gs8[0, :2])
 method_names = list(results.keys())
 method_accs = [results[n] * 100 for n in method_names]
@@ -832,7 +916,7 @@ for bar, acc in zip(bars, method_accs):
             f"{acc:.1f}%", va="center", fontsize=10, fontweight="bold")
 ax.grid(True, alpha=0.3, axis="x")
 
-# 8b. 每类F1-Score对比
+# 每类F1-Score对比
 ax = fig8.add_subplot(gs8[0, 2:])
 f1_scores = {}
 for name in results:
@@ -853,7 +937,7 @@ ax.set_ylim(0, 1.15)
 ax.set_title("各类别 F1-Score 对比", fontsize=13, fontweight="bold")
 ax.legend(fontsize=6, ncol=2); ax.grid(True, alpha=0.3, axis="y")
 
-# 8c. ROC曲线 (OvR)
+# ROC曲线 (OvR)
 ax = fig8.add_subplot(gs8[1, :])
 y_test_bin = label_binarize(y_test, classes=[0, 1, 2])
 roc_models = {
@@ -944,9 +1028,9 @@ def benchmark_acc(models=None, Xtr=None, Xte=None, ytr=None, yte=None):
     return accs
 
 
-# ============================================================
+
 # 实验 1: 特征消融
-# ============================================================
+
 print("=" * 60)
 print("实验 1/4: 特征消融 — 逐一移除特征")
 print("=" * 60)
@@ -973,9 +1057,9 @@ for name in BENCHMARK_ABL:
 
 print(f"  基准（全特征）— {', '.join(f'{n}: {base_feat[n]:.3f}' for n in base_feat)}")
 
-# ============================================================
+
 # 实验 2: 数据量消融
-# ============================================================
+
 print("\n" + "=" * 60)
 print("实验 2/4: 数据量消融 — 逐步减少训练数据")
 print("=" * 60)
@@ -998,9 +1082,9 @@ for ratio in TRAIN_RATIOS:
 
     print(f"  训练比例 {ratio:.0%} ({len(Xtr_d)}条) — {', '.join(f'{n}: {accs[n]:.3f}' for n in accs)}")
 
-# ============================================================
+
 # 实验 3: MLP 架构消融
-# ============================================================
+
 print("\n" + "=" * 60)
 print("实验 3/4: MLP 架构消融 — 逐层裁剪")
 print("=" * 60)
@@ -1032,7 +1116,7 @@ ARCH_CONFIGS = [
 
 arch_results = {}
 
-# 3a. 宽度
+# 宽度
 print("  [宽度扫描]")
 width_names, width_accs = [], []
 for label, layers in ARCH_CONFIGS[0][1]:
@@ -1045,7 +1129,7 @@ for label, layers in ARCH_CONFIGS[0][1]:
     print(f"    {label}: {acc:.4f}")
 arch_results["width"] = (width_names, width_accs)
 
-# 3b. 深度
+# 深度
 print("  [深度扫描]")
 depth_names, depth_accs = [], []
 for label, layers in ARCH_CONFIGS[1][1]:
@@ -1058,7 +1142,7 @@ for label, layers in ARCH_CONFIGS[1][1]:
     print(f"    {label}: {acc:.4f}")
 arch_results["depth"] = (depth_names, depth_accs)
 
-# 3c. 正则
+# 正则
 print("  [正则扫描]")
 reg_names, reg_accs = [], []
 for label, alpha in ARCH_CONFIGS[2][1]:
@@ -1071,7 +1155,7 @@ for label, alpha in ARCH_CONFIGS[2][1]:
     print(f"    {label}: {acc:.4f}")
 arch_results["reg"] = (reg_names, reg_accs)
 
-# 3d. 激活函数
+# 激活函数
 print("  [激活函数]")
 act_names, act_accs = [], []
 for act in ARCH_CONFIGS[3][1]:
@@ -1084,9 +1168,9 @@ for act in ARCH_CONFIGS[3][1]:
     print(f"    {act}: {acc:.4f}")
 arch_results["act"] = (act_names, act_accs)
 
-# ============================================================
+
 # 实验 4: 预处理消融
-# ============================================================
+
 print("\n" + "=" * 60)
 print("实验 4/4: 预处理消融 — 标准化 on/off")
 print("=" * 60)
@@ -1128,14 +1212,14 @@ for name in preproc_models:
     print(f"    {name:　<12s}  标准化={s:.3f}  未标准化={u:.3f}  Δ={delta:+.3f}")
 
 
-# ============================================================
+
 # 可视化
-# ============================================================
+
 print("\n生成可视化图表...")
 
-# ============================================================
-# 图1: 特征消融
-# ============================================================
+
+# 特征消融
+
 print("  [1/5] 特征消融热力图...")
 fig1 = plt.figure(figsize=(14, 8))
 fig1.suptitle("消融实验 1: 特征消融 — 逐一移除特征对各模型准确率影响",
@@ -1185,9 +1269,9 @@ fig1.tight_layout()
 fig1.savefig("iris/output/ablation_01_feature.svg", bbox_inches="tight")
 plt.close(fig1)
 
-# ============================================================
-# 图2: 数据量消融
-# ============================================================
+
+# 数据量消融
+
 print("  [2/5] 数据量消融曲线...")
 fig2 = plt.figure(figsize=(14, 8))
 fig2.suptitle("消融实验 2: 数据量消融 — 训练比例对各模型影响",
@@ -1218,15 +1302,15 @@ fig2.tight_layout()
 fig2.savefig("iris/output/ablation_02_data.svg", bbox_inches="tight")
 plt.close(fig2)
 
-# ============================================================
-# 图3: MLP 架构消融
-# ============================================================
+
+# MLP 架构消融
+
 print("  [3/5] MLP 架构消融...")
 fig3 = plt.figure(figsize=(18, 12))
 fig3.suptitle("消融实验 3: MLP 架构消融 — 宽度 / 深度 / 正则 / 激活函数",
               fontsize=16, fontweight="bold")
 
-# 3a. 宽度
+# 宽度
 ax = fig3.add_subplot(2, 2, 1)
 colors_w = plt.cm.Blues(np.linspace(0.3, 0.9, len(width_names)))
 bars = ax.bar(range(len(width_names)), [a * 100 for a in width_accs],
@@ -1241,7 +1325,7 @@ for bar, acc in zip(bars, width_accs):
             f"{acc:.2%}", ha="center", fontsize=9, fontweight="bold")
 ax.grid(True, alpha=0.3, axis="y")
 
-# 3b. 深度
+# 深度
 ax = fig3.add_subplot(2, 2, 2)
 colors_d = plt.cm.Oranges(np.linspace(0.3, 0.9, len(depth_names)))
 bars = ax.bar(range(len(depth_names)), [a * 100 for a in depth_accs],
@@ -1256,7 +1340,7 @@ for bar, acc in zip(bars, depth_accs):
             f"{acc:.2%}", ha="center", fontsize=9, fontweight="bold")
 ax.grid(True, alpha=0.3, axis="y")
 
-# 3c. 正则强度
+# 正则强度
 ax = fig3.add_subplot(2, 2, 3)
 colors_r = plt.cm.Purples(np.linspace(0.3, 0.9, len(reg_names)))
 bars = ax.bar(range(len(reg_names)), [a * 100 for a in reg_accs],
@@ -1271,7 +1355,7 @@ for bar, acc in zip(bars, reg_accs):
             f"{acc:.2%}", ha="center", fontsize=9, fontweight="bold")
 ax.grid(True, alpha=0.3, axis="y")
 
-# 3d. 激活函数
+# 激活函数
 ax = fig3.add_subplot(2, 2, 4)
 colors_a = plt.cm.Greens(np.linspace(0.3, 0.9, len(act_names)))
 bars = ax.bar(range(len(act_names)), [a * 100 for a in act_accs],
@@ -1290,9 +1374,9 @@ fig3.tight_layout()
 fig3.savefig("iris/output/ablation_03_mlp_architecture.svg", bbox_inches="tight")
 plt.close(fig3)
 
-# ============================================================
-# 图4: 预处理消融
-# ============================================================
+
+# 预处理消融
+
 print("  [4/5] 预处理消融对比...")
 fig4 = plt.figure(figsize=(14, 8))
 fig4.suptitle("消融实验 4: 预处理消融 — 标准化 vs 未标准化",
@@ -1340,28 +1424,28 @@ fig4.tight_layout()
 fig4.savefig("iris/output/ablation_04_preprocessing.svg", bbox_inches="tight")
 plt.close(fig4)
 
-# ============================================================
+
 # 5. 消融实验综合总结（文字输出）
-# ============================================================
+
 print("\n" + "=" * 60)
 print("5. 消融实验综合总结")
 print("=" * 60)
 
-# 5a. 特征消融 — 各模型最敏感特征
+# 特征消融 — 各模型最敏感特征
 print("\n  [特征消融] 各模型最敏感的特征:")
 for name in model_names:
     deg = degradation[model_names.index(name)]
     worst_idx = np.argmax(deg)
     print(f"    {name:　<12s}  最怕丢失「{feature_names_abl[worst_idx]}」 (↓{deg[worst_idx]:.3f})")
 
-# 5b. 数据量敏感度排名
+# 数据量敏感度排名
 print("\n  [数据量消融] 从 90% 减到 10% 的准确率下降:")
 drops = {name: data_abl_results[name][0] - data_abl_results[name][-1]
          for name in BENCHMARK_ABL}
 for name, drop in sorted(drops.items(), key=lambda x: x[1], reverse=True):
     print(f"    {name:　<12s}  ↓{drop:.3f}")
 
-# 5c. MLP 架构最佳配置
+# MLP 架构最佳配置
 best_width = max(zip(width_names, width_accs), key=lambda x: x[1])
 best_depth = max(zip(depth_names, depth_accs), key=lambda x: x[1])
 best_reg = max(zip(reg_names, reg_accs), key=lambda x: x[1])
@@ -1373,7 +1457,7 @@ print(f"    正则: {best_reg[0]}  ({best_reg[1]:.2%})")
 print(f"    激活: {best_act[0]}  ({best_act[1]:.2%})")
 print("    结论: Iris 小数据下浅宽网络优于深窄; 适度 L2 正则; ReLU > tanh > sigmoid")
 
-# 5d. 标准化受益排名
+# 标准化受益排名
 sorted_delta = sorted(
     [(n, preproc_results["标准化"][n] - preproc_results["未标准化"][n])
      for n in preproc_models],
@@ -1384,7 +1468,7 @@ for n, d in sorted_delta:
     print(f"    {n:　<12s}  Δ={d:+.3f}")
 print("    不敏感: 树模型 (RF/DT/GBDT)")
 
-# 5e. 核心结论
+# 核心结论
 print(f"""\n  +----------------------------------------------------------+
   |  消融实验核心结论                                       |
   +----------------------------------------------------------+
