@@ -2,7 +2,7 @@
 鸢尾花分类 — 多种机器学习方法对比
 
 数据集：Iris（150 条，4 特征，3 类）
-目标：使用 sklearn 经典算法 + 自研 mt 框架神经网络完成分类，
+目标：使用 sklearn 经典算法完成分类，
       并对各算法表现进行分析与思考。
 
 ============================================================
@@ -28,15 +28,10 @@
      KNN 天然适合。
    - 局限：预测时要遍历全部训练数据，大规模时慢；对噪声敏感。
 
-5. **自研 mt 神经网络**
-   - 两隐藏层全连接网络，使用 Adam 优化器 + CrossEntropy 损失。
-     从零实现的自动微分框架，体现对梯度反向传播原理的理解。
-   - 局限：150 条数据训练 NN 容易过拟合，需要控制模型复杂度。
-
 ============================================================
 预期结果排序（从数据特性推断）
 ============================================================
-KNN ≈ SVM > 随机森林 > 逻辑回归 > mt 神经网络
+KNN ≈ SVM > 随机森林 > 逻辑回归
 """
 
 import sys
@@ -64,12 +59,6 @@ from sklearn.linear_model import LogisticRegression
 from sklearn.svm import SVC
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.neighbors import KNeighborsClassifier
-
-import mt.core.net
-import mt.core.optm
-from mt.core.base import Placeholder, Session
-from mt.core.function import measure
-from mt.core.util import numpy_one_hot
 
 # ============================================================
 # 1. 数据加载与预处理
@@ -135,73 +124,6 @@ for name, model in models.items():
     print(f"  {classification_report(y_test, y_pred, target_names=class_names, zero_division=0)}")
 
 # ============================================================
-# 3. mt 自研框架神经网络
-# ============================================================
-print("\n" + "=" * 60)
-print("3. mt 自研框架 — 全连接神经网络")
-print("=" * 60)
-print("  架构: Input(4) -> Linear(4,16) -> ReLU -> Linear(16,8) -> ReLU -> Linear(8,3) -> Softmax")
-print("  说明: 两层隐藏层 + 输出层, softmax 激活, CrossEntropy 损失, Adam 优化器")
-print("  思考: Iris 数据仅 150 条, 隐藏层神经元不宜过多以减少过拟合。")
-print("        Adam 相比 SGD 能自适应学习率, 在梯度各向异性时收敛更快。")
-
-# one-hot 编码标签
-y_train_onehot = numpy_one_hot(y_train)
-y_test_onehot = numpy_one_hot(y_test)
-
-X_in = Placeholder()
-Y_in = Placeholder()
-
-# 构建网络
-h1 = mt.core.net.Linear(4, 16, activate_func="relu", init="he_normal")(X_in)
-h2 = mt.core.net.Linear(16, 8, activate_func="relu", init="he_normal")(h1)
-out = mt.core.net.Linear(8, 3, activate_func="softmax", init="randn")(h2)
-
-loss = measure.CrossEntropy(reduction="mean")(predict=out, label=Y_in)
-
-session = Session()
-optimizer = mt.core.optm.Adam(learning_rate=0.05)
-
-EPOCHS = 100
-train_losses, test_losses, train_accs, test_accs = [], [], [], []
-
-for epoch in range(EPOCHS):
-    # 前向传播 — 训练
-    session.run(root_op=loss, feed_dict={X_in: X_train_scaled, Y_in: y_train_onehot})
-    train_loss = float(loss.numpy)
-    train_losses.append(train_loss)
-
-    y_train_pred = np.argmax(out.numpy, axis=1)
-    train_acc = accuracy_score(y_train, y_train_pred)
-    train_accs.append(train_acc)
-
-    # 前向传播 — 测试
-    session.run(root_op=loss, feed_dict={X_in: X_test_scaled, Y_in: y_test_onehot})
-    test_loss = float(loss.numpy)
-    test_losses.append(test_loss)
-
-    y_test_pred = np.argmax(out.numpy, axis=1)
-    test_acc = accuracy_score(y_test, y_test_pred)
-    test_accs.append(test_acc)
-
-    # 反向传播 + 参数更新
-    optimizer.backward(loss)
-    optimizer.zero_grad()
-
-    if (epoch + 1) % 20 == 0 or epoch == 0:
-        print(f"  Epoch {epoch + 1:>3d} | "
-              f"train_loss: {train_loss:.4f} | "
-              f"train_acc: {train_acc:.4f} | "
-              f"test_acc: {test_acc:.4f}")
-
-# 最终评估
-y_final_pred = np.argmax(out.numpy, axis=1)
-final_acc = accuracy_score(y_test, y_final_pred)
-results["mt 神经网络"] = final_acc
-print(f"\n  [mt 神经网络] 测试准确率: {final_acc:.4f}")
-print(f"  {classification_report(y_test, y_final_pred, target_names=class_names, zero_division=0)}")
-
-# ============================================================
 # 4. 结果汇总与分析
 # ============================================================
 print("\n" + "=" * 60)
@@ -214,7 +136,7 @@ for i, (name, acc) in enumerate(sorted_results, 1):
     bar = "█" * int(acc * 50)
     print(f"  {i}. {name:　<12s}  {acc:.4f}  {bar}")
 
-print(f"""\n  +----------------------------------------------------------+\n  |  算法思考总结                                           |\n  +----------------------------------------------------------+\n  | Iris 数据集特点：                                       |\n  |   - 3 类中 setosa 与其他两类完全线性可分                |\n  |   - versicolor 与 virginica 有轻微重叠                  |\n  |   - 仅 150 条数据，4 个连续特征                         |\n  |                                                        |\n  | 为什么 SVM/KNN 通常最优？                              |\n  |   - 小样本 + 低维度是 SVM 的甜点区                      |\n  |   - KNN 无需假设数据分布，特征空间中类内紧密即好用      |\n  |                                                        |\n  | 为什么 NN 在小数据集上不占优？                          |\n  |   - NN 参数多，150 条数据不足以学到泛化模式             |\n  |   - 但通过 L2 正则 / Dropout / 减小模型可改善          |\n  |                                                        |\n  | 为什么逻辑回归也能达到 ~95%？                           |\n  |   - Iris 本质接近线性可分（尤其是 setosa 类）          |\n  |   - 逻辑回归作为 softmax 回归正是最优线性分类器之一    |\n  +----------------------------------------------------------+""")
+print(f"""\n  +----------------------------------------------------------+\n  |  算法思考总结                                           |\n  +----------------------------------------------------------+\n  | Iris 数据集特点：                                       |\n  |   - 3 类中 setosa 与其他两类完全线性可分                |\n  |   - versicolor 与 virginica 有轻微重叠                  |\n  |   - 仅 150 条数据，4 个连续特征                         |\n  |                                                        |\n  | 为什么 SVM/KNN 通常最优？                              |\n  |   - 小样本 + 低维度是 SVM 的甜点区                      |\n  |   - KNN 无需假设数据分布，特征空间中类内紧密即好用      |\n  |                                                        |\n  | 为什么逻辑回归也能达到 ~95%？                           |\n  |   - Iris 本质接近线性可分（尤其是 setosa 类）          |\n  |   - 逻辑回归作为 softmax 回归正是最优线性分类器之一    |\n  +----------------------------------------------------------+""")
 
 # ============================================================
 # 5. 可视化
@@ -653,12 +575,12 @@ plt.close(fig5)
 # ============================================================
 # 图6: KNN — 深入分析
 # ============================================================
-print("  [6/6] KNN + mt NN分析...")
-fig6 = plt.figure(figsize=(16, 10))
-fig6.suptitle("KNN 与 mt 神经网络 — 详细分析", fontsize=16, fontweight="bold")
+print("  [6/6] KNN 分析...")
+fig6, axes = plt.subplots(1, 2, figsize=(14, 6))
+fig6.suptitle("KNN — 详细分析", fontsize=16, fontweight="bold")
 
 # 6a. KNN: k值 vs 准确率
-ax = fig6.add_subplot(2, 2, 1)
+ax = axes[0]
 k_values = range(1, 31)
 k_accs = []
 for k in k_values:
@@ -674,38 +596,14 @@ ax.set_title("KNN: k值对准确率的影响", fontsize=13, fontweight="bold")
 ax.legend(); ax.grid(True, alpha=0.3)
 
 # 6b. KNN 混淆矩阵
-ax = fig6.add_subplot(2, 2, 2)
+ax = axes[1]
 cm_knn = confusion_matrix(y_test, models["KNN (k=5)"].predict(X_test_scaled))
 ConfusionMatrixDisplay(cm_knn, display_labels=class_names).plot(
     ax=ax, cmap="BuPu", colorbar=False, text_kw={"fontsize": 13}
 )
 ax.set_title("KNN (k=5) 混淆矩阵", fontsize=13, fontweight="bold")
 
-# 6c. mt NN 训练曲线
-ax = fig6.add_subplot(2, 2, 3)
-ax_loss = ax.twinx()
-line1, = ax.plot(train_losses, color="#FF6B6B", linewidth=1.5, label="训练Loss")
-line2, = ax.plot(test_losses, color="#FF6B6B", linewidth=1.5, linestyle="--", label="测试Loss")
-line3, = ax_loss.plot(train_accs, color="#45B7D1", linewidth=1.5, label="训练Acc")
-line4, = ax_loss.plot(test_accs, color="#45B7D1", linewidth=1.5, linestyle="--", label="测试Acc")
-ax.set_xlabel("Epoch")
-ax.set_ylabel("Loss", color="#FF6B6B")
-ax_loss.set_ylabel("Accuracy", color="#45B7D1")
-ax.set_title("mt NN: 训练曲线", fontsize=13, fontweight="bold")
-lines = [line1, line2, line3, line4]
-labels = [l.get_label() for l in lines]
-ax.legend(lines, labels, fontsize=8, loc="center right")
-ax.grid(True, alpha=0.3)
-
-# 6d. mt NN 混淆矩阵
-ax = fig6.add_subplot(2, 2, 4)
-cm_nn = confusion_matrix(y_test, y_final_pred)
-ConfusionMatrixDisplay(cm_nn, display_labels=class_names).plot(
-    ax=ax, cmap="Blues", colorbar=False, text_kw={"fontsize": 13}
-)
-ax.set_title(f"mt NN 混淆矩阵 (Acc={final_acc:.2%})", fontsize=13, fontweight="bold")
-
-fig6.savefig("iris/06_knn_mt_nn.png", dpi=150, bbox_inches="tight")
+fig6.savefig("iris/06_knn.png", dpi=150, bbox_inches="tight")
 plt.close(fig6)
 
 
@@ -735,11 +633,8 @@ ax.grid(True, alpha=0.3, axis="x")
 # 7b. 每类F1-Score对比
 ax = fig7.add_subplot(gs7[0, 2:])
 f1_scores = {}
-for name, model in {**models, "mt 神经网络": None}.items():
-    if name == "mt 神经网络":
-        pred = y_final_pred
-    else:
-        pred = model.predict(X_test_scaled)
+for name, model in models.items():
+    pred = model.predict(X_test_scaled)
     _, _, f1, _ = precision_recall_fscore_support(y_test, pred, zero_division=0)
     f1_scores[name] = f1
 x = np.arange(3); w = 0.15
@@ -756,9 +651,8 @@ cm_methods = [
     ("SVM RBF", confusion_matrix(y_test, models["SVM (RBF核)"].predict(X_test_scaled))),
     ("随机森林", confusion_matrix(y_test, models["随机森林"].predict(X_test_scaled))),
     ("KNN k=5", confusion_matrix(y_test, models["KNN (k=5)"].predict(X_test_scaled))),
-    ("mt NN", confusion_matrix(y_test, y_final_pred)),
 ]
-cm_positions = [(1, 0), (1, 1), (1, 2), (2, 0), (2, 1)]
+cm_positions = [(1, 0), (1, 1), (2, 0), (2, 1)]
 for (name, cm), (row, col) in zip(cm_methods, cm_positions):
     ax = fig7.add_subplot(gs7[row, col])
     ConfusionMatrixDisplay(cm, display_labels=class_names).plot(
@@ -777,7 +671,7 @@ print("    02_decision_boundaries.png — 决策边界对比")
 print("    03_logistic_regression.png — 逻辑回归分析")
 print("    04_svm.png — SVM分析")
 print("    05_random_forest.png — 随机森林分析")
-print("    06_knn_mt_nn.png — KNN + mt NN分析")
+print("    06_knn.png — KNN分析")
 print("    07_summary.png — 综合对比总结")
 
 print("\n完成！")
