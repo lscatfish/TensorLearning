@@ -373,7 +373,7 @@ ax.set_ylabel("值 (cm)")
 ax.set_title("各类别特征分布 (箱线图)", fontsize=13, fontweight="bold")
 ax.grid(True, alpha=0.3, axis="y")
 
-fig1.savefig("iris/output/01_data_exploration_advanced.svg", bbox_inches="tight")
+fig1.savefig("iris/output/01_data_exploration.svg", bbox_inches="tight")
 plt.close(fig1)
 
 
@@ -412,7 +412,7 @@ for idx, (name, model) in enumerate(boundary_models.items()):
     acc = accuracy_score(y_test, model.predict(X2_test))
     plot_decision_boundary(ax, model, X2_all, y2_all, f"{name} (Acc={acc:.2%})")
 
-fig2.savefig("iris/output/02_decision_boundaries_advanced.svg", bbox_inches="tight")
+fig2.savefig("iris/output/02_decision_boundaries.svg", bbox_inches="tight")
 plt.close(fig2)
 
 # SVM 深入分析：C 和 gamma 对 RBF 核分类效果的影响
@@ -487,7 +487,7 @@ ax.text(0.05, 0.95, sv_text, transform=ax.transAxes, fontsize=11,
         verticalalignment="top",
         bbox=dict(boxstyle="round,pad=0.5", facecolor="#f0f0f0", alpha=0.8))
 
-fig_svm.savefig("iris/output/svm_analysis.svg", bbox_inches="tight")
+fig_svm.savefig("iris/output/03_svm_analysis.svg", bbox_inches="tight")
 plt.close(fig_svm)
 
 
@@ -560,7 +560,7 @@ for c, a in zip(C_values_lr, c_lr_accs):
     ax.annotate(f"{a:.3f}", (c, a), textcoords="offset points", xytext=(0, 8),
                 ha="center", fontsize=8)
 
-fig3.savefig("iris/output/03_logistic_regression_advanced.svg", bbox_inches="tight")
+fig3.savefig("iris/output/04_logistic_regression.svg", bbox_inches="tight")
 plt.close(fig3)
 
 
@@ -667,7 +667,7 @@ for bar, s in zip(bars, act_scores):
             f"{s:.2%}", ha="center", fontsize=11, fontweight="bold")
 ax.grid(True, alpha=0.3, axis="y")
 
-fig4.savefig("iris/output/04_mlp_analysis.svg", bbox_inches="tight")
+fig4.savefig("iris/output/05_mlp_analysis.svg", bbox_inches="tight")
 plt.close(fig4)
 
 
@@ -764,7 +764,7 @@ for lr, s in zip(lr_values, lr_accs):
     ax.annotate(f"{s:.3f}", (str(lr), s), textcoords="offset points",
                 xytext=(0, 8), ha="center", fontsize=9)
 
-fig5.savefig("iris/output/05_ensemble_methods.svg", bbox_inches="tight")
+fig5.savefig("iris/output/06_ensemble_methods.svg", bbox_inches="tight")
 plt.close(fig5)
 
 
@@ -825,7 +825,7 @@ ConfusionMatrixDisplay(cm_dt, display_labels=class_names).plot(
     ax=ax, cmap="YlOrBr", colorbar=False, text_kw={"fontsize": 13})
 ax.set_title("决策树 (d=3) 混淆矩阵", fontsize=13, fontweight="bold")
 
-fig6.savefig("iris/output/06_tree_nb_analysis.svg", bbox_inches="tight")
+fig6.savefig("iris/output/07_tree_nb_analysis.svg", bbox_inches="tight")
 plt.close(fig6)
 
 
@@ -890,7 +890,7 @@ for bar, mean, std in zip(bars, cv_means, cv_stds):
             f"{mean:.1f}%±{std:.1f}%", va="center", fontsize=8)
 ax.grid(True, alpha=0.3, axis="x")
 
-fig7.savefig("iris/output/07_knn_mlp_curves.svg", bbox_inches="tight")
+fig7.savefig("iris/output/08_knn_mlp_curves.svg", bbox_inches="tight")
 plt.close(fig7)
 
 
@@ -982,18 +982,18 @@ for idx, (name, cm) in enumerate(cm_list):
     ax.set_title(name, fontsize=11, fontweight="bold")
 
 fig8.tight_layout()
-fig8.savefig("iris/output/08_summary_advanced.svg", bbox_inches="tight")
+fig8.savefig("iris/output/09_summary.svg", bbox_inches="tight")
 plt.close(fig8)
 
 print("  图表已保存至 iris/output/ 目录 (SVG 格式):")
-print("    01_data_exploration_advanced.svg  — 数据探索")
-print("    02_decision_boundaries_advanced.svg — 8模型决策边界")
-print("    03_logistic_regression_advanced.svg — 逻辑回归分析")
-print("    04_mlp_analysis.svg — MLP深入分析 (架构/正则/激活)")
-print("    05_ensemble_methods.svg — 集成方法 (RF vs GBDT)")
-print("    06_tree_nb_analysis.svg — 决策树 & 朴素贝叶斯")
-print("    07_knn_mlp_curves.svg — KNN + MLP训练曲线")
-print("    08_summary_advanced.svg — 综合对比总结")
+print("    01_data_exploration.svg  — 数据探索")
+print("    02_decision_boundaries.svg — 8模型决策边界")
+print("    04_logistic_regression.svg — 逻辑回归分析")
+print("    05_mlp_analysis.svg — MLP深入分析 (架构/正则/激活)")
+print("    06_ensemble_methods.svg — 集成方法 (RF vs GBDT)")
+print("    07_tree_nb_analysis.svg — 决策树 & 朴素贝叶斯")
+print("    08_knn_mlp_curves.svg — KNN + MLP训练曲线")
+print("    09_summary.svg — 综合对比总结")
 
 
 # 消融实验专用特征名（简写，用于图表标签）
