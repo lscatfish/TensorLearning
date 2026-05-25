@@ -1,64 +1,36 @@
-"""
-鸢尾花分类 — 深入机器学习方法对比（mt 无关版本）
-
-数据集：Iris（150 条，4 特征，3 类）
-目标：使用 sklearn 经典算法 + 高级模型完成分类，
-       重点关注 MLP 及其他深入架构的对比分析。
-
-算法选择与思考
-
-1. **逻辑回归 (Logistic Regression)**
-   - 线性分类器，可解释性强。Iris 数据线性可分度高，
-     理论上单个 OvR 逻辑回归就能取得不错效果。
-
-2. **支持向量机 (SVM)**
-   - 通过核技巧可拟合非线性边界。Iris 数据量小、特征少，
-     RBF 核的 SVM 往往是最优选择之一。
-
-3. **随机森林 (Random Forest)**
-   - 集成学习，通过多棵决策树投票降低过拟合。
-
-4. **K 近邻 (KNN)**
-   - 无参数、简单直观。Iris 数据集中同类样本特征空间较聚集，
-     KNN 天然适合。
-
-5. **MLP 多层感知器 (sklearn)**
-   - 使用 sklearn.neural_network.MLPClassifier
-   - 参考 mt 框架的小→大→小构架：Input(4)→Expand(16/32)→Compress(8)→Output(3)
-   - 高维划分理论：先升维到高维空间使数据更线性可分，再降维到类别空间
-   - 相比 mt，MLPClassifier 内置了 L2 正则、自适应学习率等实用特性
-
-6. **梯度提升树 (Gradient Boosting)**
-   - 基于残差逐步迭代的集成方法，通常在结构化数据上表现优异。
-   - 相比随机森林，GBDT 能更细致地拟合数据，
-     但对超参数（lr, n_estimators, max_depth）更敏感。
-
-7. **决策树 (Decision Tree)**
-   - 单一决策树，可解释性最强，但容易过拟合。
-     作为对比基线，展示剪枝（max_depth）的影响。
-
-8. **高斯朴素贝叶斯 (Gaussian Naive Bayes)**
-   - 基于贝叶斯定理 + 特征独立假设。
-     虽然特征独立假设在 Iris 上不完全成立，
-     但花瓣特征区分度高，仍能取得不错效果。
-
-预期结果排序（从数据特性推断）
-SVM ≈ KNN > MLP (小→大→小构架) ≈ GradientBoosting > 随机森林 > 逻辑回归 > 决策树 > 朴素贝叶斯
-"""
-
 import warnings
 import numpy as np
 import matplotlib
+import platform
 
+# 兜底过滤：直接屏蔽U+2212相关警告，彻底消除弹窗
+warnings.filterwarnings("ignore", category=UserWarning, message=".*Glyph.*U+2212.*")
 warnings.filterwarnings("ignore")
-matplotlib.use("Agg")
+
+# 自动适配多系统中文字体，避免Linux/Mac环境字体缺失
+system = platform.system()
+if system == "Windows":
+    chinese_fonts = ["SimHei", "Microsoft YaHei"]
+elif system == "Darwin":
+    chinese_fonts = ["PingFang SC", "Heiti SC"]
+else:
+    chinese_fonts = ["WenQuanYi Micro Hei", "Noto Sans CJK SC"]
+
+# Agg后端专属全局配置，从根源禁用Unicode负号
+matplotlib.rcParams.update({
+    "backend": "Agg",
+    "font.sans-serif": chinese_fonts + ["DejaVu Sans"],
+    "font.family": "sans-serif",
+    "axes.unicode_minus": False,
+    "svg.fonttype": "none",
+    "text.usetex": False,
+})
 
 import matplotlib.pyplot as plt
 import matplotlib.font_manager as fm
 
-plt.rcParams["font.sans-serif"] = ["SimHei", "Microsoft YaHei"]
-plt.rcParams["axes.unicode_minus"] = False
-
+# 强制重建字体缓存，避免旧缓存导致配置失效
+fm._rebuild()
 from matplotlib.gridspec import GridSpec
 from sklearn.model_selection import train_test_split, cross_val_score, GridSearchCV
 from sklearn.preprocessing import StandardScaler, label_binarize
@@ -371,6 +343,7 @@ ax.set_ylabel("值 (cm)")
 ax.set_title("各类别特征分布 (箱线图)", fontsize=13, fontweight="bold")
 ax.grid(True, alpha=0.3, axis="y")
 
+plt.rcParams["axes.unicode_minus"] = False
 fig1.savefig("iris/output/01_data_exploration.svg", bbox_inches="tight")
 plt.close(fig1)
 
@@ -412,6 +385,7 @@ for idx, (name, model) in enumerate(boundary_models.items()):
     acc = accuracy_score(y_test, model.predict(X2_test))
     plot_decision_boundary(ax, model, X2_all, y2_all, f"{name} (Acc={acc:.2%})")
 
+plt.rcParams["axes.unicode_minus"] = False
 fig2.savefig("iris/output/02_decision_boundaries.svg", bbox_inches="tight")
 plt.close(fig2)
 
@@ -470,6 +444,7 @@ for bar, a in zip(bars, gamma_accs):
 # SVM 混淆矩阵
 ax = fig_svm.add_subplot(2, 2, 3)
 cm_svm = confusion_matrix(y_test, models["SVM (RBF核)"].predict(X_test_scaled))
+plt.rcParams["axes.unicode_minus"] = False
 ConfusionMatrixDisplay(cm_svm, display_labels=class_names).plot(
     ax=ax, cmap="RdPu", colorbar=False, text_kw={"fontsize": 13})
 ax.set_title("混淆矩阵", fontsize=13, fontweight="bold")
@@ -527,6 +502,7 @@ ax.grid(True, alpha=0.3, axis="y")
 
 ax = fig3.add_subplot(2, 3, 4)
 cm_lr = confusion_matrix(y_test, models["逻辑回归"].predict(X_test_scaled))
+plt.rcParams["axes.unicode_minus"] = False
 ConfusionMatrixDisplay(cm_lr, display_labels=class_names).plot(
     ax=ax, cmap="RdYlBu", colorbar=False, text_kw={"fontsize": 13})
 ax.set_title("混淆矩阵 (测试集)", fontsize=13, fontweight="bold")
@@ -564,6 +540,7 @@ for c, a in zip(C_values_lr, c_lr_accs):
     ax.annotate(f"{a:.3f}", (c, a), textcoords="offset points", xytext=(0, 8),
                 ha="center", fontsize=8)
 
+plt.rcParams["axes.unicode_minus"] = False
 fig3.savefig("iris/output/04_logistic_regression.svg", bbox_inches="tight")
 plt.close(fig3)
 
@@ -608,6 +585,7 @@ ax.grid(True, alpha=0.3)
 # MLP 混淆矩阵 (GridSearch最佳)
 ax = fig4.add_subplot(2, 3, 3)
 cm_mlp = confusion_matrix(y_test, y_pred_best_mlp)
+plt.rcParams["axes.unicode_minus"] = False
 ConfusionMatrixDisplay(cm_mlp, display_labels=class_names).plot(
     ax=ax, cmap="Blues", colorbar=False, text_kw={"fontsize": 13})
 ax.set_title(f"MLP (GridSearch最佳) 混淆矩阵\nacc={best_mlp_acc:.2%}", fontsize=12, fontweight="bold")
@@ -675,6 +653,7 @@ for bar, s in zip(bars, act_scores):
             f"{s:.2%}", ha="center", fontsize=11, fontweight="bold")
 ax.grid(True, alpha=0.3, axis="y")
 
+plt.rcParams["axes.unicode_minus"] = False
 fig4.savefig("iris/output/05_mlp_analysis.svg", bbox_inches="tight")
 plt.close(fig4)
 
@@ -746,6 +725,7 @@ ax.grid(True, alpha=0.3)
 # 随机森林混淆矩阵
 ax = fig5.add_subplot(2, 3, 4)
 cm_rf = confusion_matrix(y_test, models["随机森林"].predict(X_test_scaled))
+plt.rcParams["axes.unicode_minus"] = False
 ConfusionMatrixDisplay(cm_rf, display_labels=class_names).plot(
     ax=ax, cmap="YlGn", colorbar=False, text_kw={"fontsize": 13})
 ax.set_title("随机森林混淆矩阵", fontsize=13, fontweight="bold")
@@ -753,6 +733,7 @@ ax.set_title("随机森林混淆矩阵", fontsize=13, fontweight="bold")
 # 梯度提升树混淆矩阵
 ax = fig5.add_subplot(2, 3, 5)
 cm_gbdt = confusion_matrix(y_test, models["梯度提升树"].predict(X_test_scaled))
+plt.rcParams["axes.unicode_minus"] = False
 ConfusionMatrixDisplay(cm_gbdt, display_labels=class_names).plot(
     ax=ax, cmap="PuBu", colorbar=False, text_kw={"fontsize": 13})
 ax.set_title("梯度提升树混淆矩阵", fontsize=13, fontweight="bold")
@@ -775,6 +756,7 @@ for lr, s in zip(lr_values, lr_accs):
     ax.annotate(f"{s:.3f}", (str(lr), s), textcoords="offset points",
                 xytext=(0, 8), ha="center", fontsize=9)
 
+plt.rcParams["axes.unicode_minus"] = False
 fig5.savefig("iris/output/06_ensemble_methods.svg", bbox_inches="tight")
 plt.close(fig5)
 
@@ -789,6 +771,7 @@ fig6.suptitle("决策树 & 高斯朴素贝叶斯", fontsize=16, fontweight="bold
 ax = fig6.add_subplot(2, 3, (1, 2))
 dt_viz = DecisionTreeClassifier(max_depth=3, random_state=42)
 dt_viz.fit(X_train_scaled, y_train)
+plt.rcParams["axes.unicode_minus"] = False
 plot_tree(dt_viz, feature_names=feature_names, class_names=list(class_names),
           filled=True, rounded=True, ax=ax, fontsize=9)
 ax.set_title("决策树 (max_depth=3)", fontsize=13, fontweight="bold")
@@ -830,6 +813,7 @@ ax.grid(True, alpha=0.3)
 # 朴素贝叶斯混淆矩阵
 ax = fig6.add_subplot(2, 3, 5)
 cm_gnb = confusion_matrix(y_test, models["高斯朴素贝叶斯"].predict(X_test_scaled))
+plt.rcParams["axes.unicode_minus"] = False
 ConfusionMatrixDisplay(cm_gnb, display_labels=class_names).plot(
     ax=ax, cmap="OrRd", colorbar=False, text_kw={"fontsize": 13})
 ax.set_title("高斯朴素贝叶斯混淆矩阵", fontsize=13, fontweight="bold")
@@ -837,10 +821,12 @@ ax.set_title("高斯朴素贝叶斯混淆矩阵", fontsize=13, fontweight="bold"
 # 决策树混淆矩阵
 ax = fig6.add_subplot(2, 3, 6)
 cm_dt = confusion_matrix(y_test, models["决策树"].predict(X_test_scaled))
+plt.rcParams["axes.unicode_minus"] = False
 ConfusionMatrixDisplay(cm_dt, display_labels=class_names).plot(
     ax=ax, cmap="YlOrBr", colorbar=False, text_kw={"fontsize": 13})
 ax.set_title("决策树 (d=3) 混淆矩阵", fontsize=13, fontweight="bold")
 
+plt.rcParams["axes.unicode_minus"] = False
 fig6.savefig("iris/output/07_tree_nb_analysis.svg", bbox_inches="tight")
 plt.close(fig6)
 
@@ -871,6 +857,7 @@ ax.grid(True, alpha=0.3)
 # KNN 混淆矩阵 (k=5)
 ax = fig7.add_subplot(2, 2, 2)
 cm_knn = confusion_matrix(y_test, models["KNN (k=5)"].predict(X_test_scaled))
+plt.rcParams["axes.unicode_minus"] = False
 ConfusionMatrixDisplay(cm_knn, display_labels=class_names).plot(
     ax=ax, cmap="BuPu", colorbar=False, text_kw={"fontsize": 13})
 ax.set_title(f"KNN (k=5) 混淆矩阵 (Acc={results['KNN (k=5)']:.2%})", fontsize=13, fontweight="bold")
@@ -910,6 +897,7 @@ for bar, mean, std in zip(bars, cv_means, cv_stds):
             f"{mean:.1f}%±{std:.1f}%", va="center", fontsize=8)
 ax.grid(True, alpha=0.3, axis="x")
 
+plt.rcParams["axes.unicode_minus"] = False
 fig7.savefig("iris/output/08_knn_mlp_curves.svg", bbox_inches="tight")
 plt.close(fig7)
 
@@ -1000,12 +988,14 @@ for idx, (name, cm) in enumerate(cm_list):
     row = 2 if idx < 4 else 3
     col = idx % 4
     ax = fig8.add_subplot(gs8[row, col])
+    plt.rcParams["axes.unicode_minus"] = False
     ConfusionMatrixDisplay(cm, display_labels=class_names).plot(
         ax=ax, cmap="YlOrRd", colorbar=False, text_kw={"fontsize": 10},
         im_kw={"vmin": 0, "vmax": 15})
     ax.set_title(name, fontsize=11, fontweight="bold")
 
 fig8.tight_layout()
+plt.rcParams["axes.unicode_minus"] = False
 fig8.savefig("iris/output/09_summary.svg", bbox_inches="tight")
 plt.close(fig8)
 
@@ -1287,6 +1277,7 @@ for i in range(len(model_names)):
 fig1.colorbar(im2, ax=ax2, shrink=0.8)
 
 fig1.tight_layout()
+plt.rcParams["axes.unicode_minus"] = False
 fig1.savefig("iris/output/ablation_01_feature.svg", bbox_inches="tight")
 plt.close(fig1)
 
@@ -1320,6 +1311,7 @@ for name in BENCHMARK_ABL:
                 fontsize=7, color=COLORS_ABL[name], fontweight="bold")
 
 fig2.tight_layout()
+plt.rcParams["axes.unicode_minus"] = False
 fig2.savefig("iris/output/ablation_02_data.svg", bbox_inches="tight")
 plt.close(fig2)
 
@@ -1392,6 +1384,7 @@ for bar, acc in zip(bars, act_accs):
 ax.grid(True, alpha=0.3, axis="y")
 
 fig3.tight_layout()
+plt.rcParams["axes.unicode_minus"] = False
 fig3.savefig("iris/output/ablation_03_mlp_architecture.svg", bbox_inches="tight")
 plt.close(fig3)
 
@@ -1442,6 +1435,7 @@ for bar, d in zip(bars, deltas):
             ha="left" if d > 0 else "right")
 
 fig4.tight_layout()
+plt.rcParams["axes.unicode_minus"] = False
 fig4.savefig("iris/output/ablation_04_preprocessing.svg", bbox_inches="tight")
 plt.close(fig4)
 
