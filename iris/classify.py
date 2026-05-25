@@ -60,10 +60,9 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import matplotlib.font_manager as fm
 
-# 中文字体配置
-plt.rcParams["font.sans-serif"] = ["SimHei", "Microsoft YaHei", "DejaVu Sans"]
+plt.rcParams["font.sans-serif"] = ["SimHei", "Microsoft YaHei"]
 plt.rcParams["axes.unicode_minus"] = False
-plt.rcParams["svg.fonttype"] = "none"  # SVG 中文字保留为文本
+
 from matplotlib.gridspec import GridSpec
 from sklearn.model_selection import train_test_split, cross_val_score, GridSearchCV
 from sklearn.preprocessing import StandardScaler, label_binarize
@@ -262,23 +261,20 @@ for i, (name, acc) in enumerate(sorted_results, 1):
     bar = "=" * int(acc * 50)
     print(f"  {i}. {name:　<16s}  {acc:.4f}  {bar}")
 
-print(f"""\n  +--------------------------------------------------------------+
-  |  算法思考总结                                             |
-  +--------------------------------------------------------------+
-  | MLP vs 传统方法:                                          |
-  |   - MLP 在调优后能达到与传统方法相当的准确率                 |
-  |   - 小数据下 MLP 容易过拟合, 需配合早停 + L2 正则          |
-  |   - 隐层大小 (16,8) 比 (32,) 略好 — 深度比宽度更优?        |
-  |   - GridSearch 帮助找到最适合 Iris 的架构                  |
-  |                                                            |
-  | 为什么集成方法表现稳定?                                    |
-  |   - 随机森林和梯度提升树通过集成降低方差/偏差              |
-  |   - Iris 数据小, 单模型可能不稳定, 集成后更鲁棒            |
-  |                                                            |
-  | 朴素贝叶斯假设的局限性:                                    |
-  |   - 花瓣长 vs 花瓣宽强相关, 违反独立假设                   |
-  |   - 但特征区分度高, 仍然有竞争力                           |
-  +--------------------------------------------------------------+""")
+print("\n  算法思考总结")
+print("  MLP vs 传统方法:")
+print("    - MLP 在调优后能达到与传统方法相当的准确率")
+print("    - 小数据下 MLP 容易过拟合, 需配合早停 + L2 正则")
+print("    - 隐层大小 (16,8) 比 (32,) 略好 — 深度比宽度更优?")
+print("    - GridSearch 帮助找到最适合 Iris 的架构")
+print()
+print("  为什么集成方法表现稳定?")
+print("    - 随机森林和梯度提升树通过集成降低方差/偏差")
+print("    - Iris 数据小, 单模型可能不稳定, 集成后更鲁棒")
+print()
+print("  朴素贝叶斯假设的局限性:")
+print("    - 花瓣长 vs 花瓣宽强相关, 违反独立假设")
+print("    - 但特征区分度高, 仍然有竞争力")
 
 
 # 6. 可视化
@@ -1499,30 +1495,27 @@ for n, d in sorted_delta:
 print("    不敏感: 树模型 (RF/DT/GBDT)")
 
 # 核心结论
-print(f"""\n  +----------------------------------------------------------+
-  |  消融实验核心结论                                       |
-  +----------------------------------------------------------+
-  | 1. 特征消融                                             |
-  |    * 花瓣长和花瓣宽是几乎所有模型的最关键特征            |
-  |    * 移除后 SVM 和 MLP 退化最严重                        |
-  |    * 花萼特征移除后影响较小（setosa 靠花瓣即可区分）    |
-  |                                                         |
-  | 2. 数据量消融                                           |
-  |    * KNN 和朴素贝叶斯在小数据量下退化最快                |
-  |    * SVM 和决策树对数据量相对不敏感                      |
-  |    * 所有模型在 50% 数据以上基本达到饱和                 |
-  |                                                         |
-  | 3. MLP 架构                                             |
-  |    * 单隐藏层 16~32 神经元足够（Iris 只有 150 条数据）   |
-  |    * 深度超过 2 层反而容易过拟合                         |
-  |    * L2 正则 alpha=0.001 是最佳平衡点                    |
-  |    * ReLU > tanh > logistic（logistic 饱和问题严重）    |
-  |                                                         |
-  | 4. 预处理                                               |
-  |    * SVM、KNN、MLP、逻辑回归依赖标准化                   |
-  |    * 树模型（RF/DT/GBDT）基本不受量纲影响                |
-  |    * 朴素贝叶斯标准化后略有下降（方差估计受影响）        |
-  +----------------------------------------------------------+""")
+print("\n  消融实验核心结论")
+print("  1. 特征消融")
+print("    - 花瓣长和花瓣宽是几乎所有模型的最关键特征")
+print("    - 移除后 SVM 和 MLP 退化最严重")
+print("    - 花萼特征移除后影响较小（setosa 靠花瓣即可区分）")
+print()
+print("  2. 数据量消融")
+print("    - KNN 和朴素贝叶斯在小数据量下退化最快")
+print("    - SVM 和决策树对数据量相对不敏感")
+print("    - 所有模型在 50% 数据以上基本达到饱和")
+print()
+print("  3. MLP 架构")
+print("    - 单隐藏层 16~32 神经元足够（Iris 只有 150 条数据）")
+print("    - 深度超过 2 层反而容易过拟合")
+print("    - L2 正则 alpha=0.001 是最佳平衡点")
+print("    - ReLU > tanh > logistic（logistic 饱和问题严重）")
+print()
+print("  4. 预处理")
+print("    - SVM、KNN、MLP、逻辑回归依赖标准化")
+print("    - 树模型（RF/DT/GBDT）基本不受量纲影响")
+print("    - 朴素贝叶斯标准化后略有下降（方差估计受影响）")
 
 print("\n  图表已保存至 iris/output/:")
 print("    ablation_01_feature.svg        — 特征消融热力图")
