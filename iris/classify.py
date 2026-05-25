@@ -1051,10 +1051,8 @@ def plot_cv_comparison(cv_results):
 
 # 消融实验相关函数
 
-def benchmark_acc(models=None, Xtr=None, Xte=None, ytr=None, yte=None):
+def benchmark_acc(models, Xtr, Xte, ytr, yte):
     """消融实验专用：在指定数据上训练并返回各模型准确率。"""
-    if models is None:
-        models = BENCHMARK_ABL
     accs = {}
     for name, model in models.items():
         m = model
