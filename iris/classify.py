@@ -942,13 +942,13 @@ plt.close(fig_mlp_curves)
 # 综合对比总结
 
 print("  [12/12] 综合总结图...")
-fig8 = plt.figure(figsize=(22, 16))
+fig8 = plt.figure(figsize=(14, 28))
 fig8.suptitle("Iris 鸢尾花分类 — 8种方法综合对比", fontsize=18, fontweight="bold")
 
-gs8 = GridSpec(4, 4, figure=fig8, hspace=0.5, wspace=0.4)
+gs8 = GridSpec(7, 2, figure=fig8, hspace=0.4, wspace=0.35)
 
 # 准确率柱状图
-ax = fig8.add_subplot(gs8[0, :2])
+ax = fig8.add_subplot(gs8[0, :])
 method_names = list(results.keys())
 method_accs = [results[n] * 100 for n in method_names]
 colors_top = plt.cm.Set3(np.linspace(0, 1, len(method_names)))
@@ -962,7 +962,7 @@ for bar, acc in zip(bars, method_accs):
 ax.grid(True, alpha=0.3, axis="x")
 
 # 每类F1-Score对比
-ax = fig8.add_subplot(gs8[0, 2:])
+ax = fig8.add_subplot(gs8[1, :])
 f1_scores = {}
 for name in results:
     model = models.get(name, None)
@@ -985,7 +985,7 @@ ax.legend(fontsize=6, ncol=2)
 ax.grid(True, alpha=0.3, axis="y")
 
 # ROC曲线 (OvR)
-ax = fig8.add_subplot(gs8[1, :])
+ax = fig8.add_subplot(gs8[2, :])
 y_test_bin = label_binarize(y_test, classes=[0, 1, 2])
 roc_models = {
     "逻辑回归": models["逻辑回归"],
@@ -1012,7 +1012,7 @@ ax.set_title("ROC 曲线对比 (OvR, 以 setosa 类为例)", fontsize=14, fontwe
 ax.legend(fontsize=8, ncol=2)
 ax.grid(True, alpha=0.3)
 
-# 汇总所有模型的混淆矩阵
+# 汇总所有模型的混淆矩阵（2列排列）
 cm_list = []
 for name in ["逻辑回归", "SVM (RBF核)", "随机森林", "KNN (k=5)"]:
     cm_list.append((name, confusion_matrix(y_test, models[name].predict(X_test_scaled))))
@@ -1022,14 +1022,14 @@ cm_list.append(("决策树", confusion_matrix(y_test, models["决策树"].predic
 cm_list.append(("朴素贝叶斯", confusion_matrix(y_test, models["高斯朴素贝叶斯"].predict(X_test_scaled))))
 
 for idx, (name, cm) in enumerate(cm_list):
-    row = 2 if idx < 4 else 3
-    col = idx % 4
+    row = 3 + idx // 2
+    col = idx % 2
     ax = fig8.add_subplot(gs8[row, col])
     plt.rcParams["axes.unicode_minus"] = False
     ConfusionMatrixDisplay(cm, display_labels=class_names).plot(
-        ax=ax, cmap="Blues", colorbar=False, text_kw={"fontsize": 10},
+        ax=ax, cmap="Blues", colorbar=False, text_kw={"fontsize": 11},
         im_kw={"vmin": 0, "vmax": 15})
-    ax.set_title(name, fontsize=11, fontweight="bold")
+    ax.set_title(name, fontsize=12, fontweight="bold")
 
 fig8.tight_layout()
 plt.rcParams["axes.unicode_minus"] = False
