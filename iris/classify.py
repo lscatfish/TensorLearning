@@ -643,7 +643,7 @@ info_text = (
 for name, imp in zip(feature_names, importances):
     info_text += f"  {name}: {imp:.4f}\n"
 ax.text(0.05, 0.95, info_text, transform=ax.transAxes, fontsize=11,
-        fontfamily="monospace", verticalalignment="top",
+        verticalalignment="top",
         bbox=dict(boxstyle="round,pad=0.5", facecolor="#f0f0f0", alpha=0.8))
 
 fig5.savefig("iris/05_random_forest.png", dpi=150, bbox_inches="tight")
