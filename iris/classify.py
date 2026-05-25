@@ -244,6 +244,7 @@ def print_summary(results, cv_results):
 # 辅助绘图函数
 
 def plot_decision_boundary(ax, model, X_2d, y, title, h=0.02):
+    """辅助：在 2D 平面上绘制决策边界。"""
     x_min, x_max = X_2d[:, 0].min() - 0.5, X_2d[:, 0].max() + 0.5
     y_min, y_max = X_2d[:, 1].min() - 0.5, X_2d[:, 1].max() + 0.5
     xx, yy = np.meshgrid(np.arange(x_min, x_max, h),
@@ -262,6 +263,7 @@ def plot_decision_boundary(ax, model, X_2d, y, title, h=0.02):
 # 各方法独立绘图函数
 
 def plot_data_exploration(X_raw, y_labels, class_names, colors_pie):
+    """01 数据探索：散点图、饼图、箱线图。"""
     print("  [1/12] 数据探索...")
     fig1 = plt.figure(figsize=(16, 12))
     fig1.suptitle("Iris 数据集探索", fontsize=18, fontweight="bold", y=0.98)
@@ -333,6 +335,7 @@ def plot_data_exploration(X_raw, y_labels, class_names, colors_pie):
 
 
 def plot_decision_boundaries(X_train, y_train, X_test, y_test, X_train_scaled, X_test_scaled, class_names):
+    """02 决策边界：8 模型在花瓣长/宽上的分类区域对比。"""
     print("  [2/12] 决策边界对比 (8模型)...")
     FEAT2 = [2, 3]
     X2_train = X_train_scaled[:, FEAT2]
@@ -378,6 +381,7 @@ def plot_decision_boundaries(X_train, y_train, X_test, y_test, X_train_scaled, X
 
 
 def plot_svm_analysis(X_train_scaled, y_train, X_test_scaled, y_test, models, class_names):
+    """03 SVM 分析：C 值、gamma、混淆矩阵、支持向量统计。"""
     print("  [3/12] SVM 深入分析...")
     fig_svm = plt.figure(figsize=(16, 10))
     fig_svm.suptitle("SVM (RBF核) — 参数影响分析", fontsize=16, fontweight="bold")
@@ -449,6 +453,7 @@ def plot_svm_analysis(X_train_scaled, y_train, X_test_scaled, y_test, models, cl
 
 
 def plot_logistic_regression(X_train_scaled, y_train, X_test_scaled, y_test, models, class_names, feature_names):
+    """04 逻辑回归分析：系数热力图、特征重要性、混淆矩阵、C 值扫描。"""
     print("  [4/12] 逻辑回归分析...")
     fig3 = plt.figure(figsize=(16, 10))
     fig3.suptitle("逻辑回归 — 详细分析", fontsize=16, fontweight="bold")
@@ -526,6 +531,7 @@ def plot_logistic_regression(X_train_scaled, y_train, X_test_scaled, y_test, mod
 
 def plot_mlp_analysis(results, y_pred_best_mlp, best_mlp_acc, grid_search,
                       X_train_scaled, y_train, X_test_scaled, y_test, class_names, feature_names):
+    """05 MLP 分析：架构对比、损失曲线、混淆矩阵、GridSearch、alpha、激活函数。"""
     print("  [5/12] MLP 深入分析...")
     fig4 = plt.figure(figsize=(18, 12))
     fig4.suptitle("MLP (多层感知器) — 深入分析", fontsize=16, fontweight="bold")
@@ -642,6 +648,7 @@ def plot_mlp_analysis(results, y_pred_best_mlp, best_mlp_acc, grid_search,
 
 
 def plot_random_forest(X_train_scaled, y_train, X_test_scaled, y_test, models, class_names, feature_names):
+    """06 随机森林分析：特征重要性、估计器数量、混淆矩阵、深度扫描。"""
     print("  [6/12] 随机森林分析...")
     fig5 = plt.figure(figsize=(16, 10))
     fig5.suptitle("随机森林 — 详细分析", fontsize=16, fontweight="bold")
@@ -704,6 +711,7 @@ def plot_random_forest(X_train_scaled, y_train, X_test_scaled, y_test, models, c
 
 
 def plot_gradient_boosting(X_train_scaled, y_train, X_test_scaled, y_test, models, class_names, feature_names):
+    """07 梯度提升树分析：特征重要性、估计器数量、混淆矩阵、学习率。"""
     print("  [7/12] 梯度提升树分析...")
     fig_gbdt = plt.figure(figsize=(16, 10))
     fig_gbdt.suptitle("梯度提升树 — 详细分析", fontsize=16, fontweight="bold")
@@ -769,6 +777,7 @@ def plot_gradient_boosting(X_train_scaled, y_train, X_test_scaled, y_test, model
 
 
 def plot_decision_tree(X_train_scaled, y_train, X_test_scaled, y_test, models, class_names, feature_names):
+    """08 决策树分析：树可视化、深度影响、混淆矩阵。"""
     print("  [8/12] 决策树分析...")
     fig6 = plt.figure(figsize=(16, 10))
     fig6.suptitle("决策树 — 详细分析", fontsize=16, fontweight="bold")
@@ -811,6 +820,7 @@ def plot_decision_tree(X_train_scaled, y_train, X_test_scaled, y_test, models, c
 
 
 def plot_naive_bayes(X_test_scaled, y_test, models, class_names, feature_names, colors_pie):
+    """09 朴素贝叶斯分析：各类别高斯分布参数、混淆矩阵。"""
     print("  [9/12] 朴素贝叶斯分析...")
     fig_nb = plt.figure(figsize=(14, 6))
     fig_nb.suptitle("高斯朴素贝叶斯 — 详细分析", fontsize=16, fontweight="bold")
@@ -843,6 +853,7 @@ def plot_naive_bayes(X_test_scaled, y_test, models, class_names, feature_names, 
 
 
 def plot_knn(X_train_scaled, y_train, X_test_scaled, y_test, models, class_names, results):
+    """10 KNN 分析：k 值扫描、混淆矩阵。"""
     print("  [10/12] KNN 分析...")
     fig_knn = plt.figure(figsize=(14, 6))
     fig_knn.suptitle("KNN — 详细分析", fontsize=16, fontweight="bold")
@@ -876,6 +887,7 @@ def plot_knn(X_train_scaled, y_train, X_test_scaled, y_test, models, class_names
 
 
 def plot_mlp_training_curves(X_train_scaled, y_train, X_test_scaled, y_test):
+    """11 MLP 不同架构训练损失对比。"""
     print("  [11/12] MLP 训练曲线对比...")
     fig_mlp_curves = plt.figure(figsize=(10, 6))
     fig_mlp_curves.suptitle("MLP — 不同架构训练损失对比", fontsize=16, fontweight="bold")
@@ -904,6 +916,7 @@ def plot_mlp_training_curves(X_train_scaled, y_train, X_test_scaled, y_test):
 
 
 def plot_summary(results, models, y_test, X_test_scaled, y_pred_best_mlp, best_mlp, class_names, cv_results):
+    """12 综合对比：准确率、F1、ROC、所有混淆矩阵汇总。"""
     print("  [12/12] 综合总结图...")
     fig8 = plt.figure(figsize=(14, 28))
     fig8.suptitle("Iris 鸢尾花分类 — 8种方法综合对比", fontsize=18, fontweight="bold")
@@ -997,6 +1010,7 @@ def plot_summary(results, models, y_test, X_test_scaled, y_pred_best_mlp, best_m
 
 
 def plot_cv_comparison(cv_results):
+    """13 交叉验证对比：各模型 5 折 CV 结果。"""
     print("  [补充] 交叉验证对比...")
     fig_cv = plt.figure(figsize=(12, 8))
     fig_cv.suptitle("各模型 5 折交叉验证对比", fontsize=16, fontweight="bold")
@@ -1234,6 +1248,7 @@ def run_ablation_experiments(X_train, X_test, y_train, y_test, X_train_scaled, X
 
 
 def _plot_ablation_feature(feat_abl_results, base_feat, benchmark_abl, feature_names_abl):
+    """消融实验图 1：特征消融热力图。"""
     print("  [1/5] 特征消融热力图...")
     fig1 = plt.figure(figsize=(14, 8))
     fig1.suptitle("消融实验 1: 特征消融 — 逐一移除特征对各模型准确率影响",
@@ -1285,6 +1300,7 @@ def _plot_ablation_feature(feat_abl_results, base_feat, benchmark_abl, feature_n
 
 
 def _plot_ablation_data(data_abl_results, train_ratios, benchmark_abl, colors_abl):
+    """消融实验图 2：数据量消融曲线。"""
     print("  [2/5] 数据量消融曲线...")
     fig2 = plt.figure(figsize=(14, 8))
     fig2.suptitle("消融实验 2: 数据量消融 — 训练比例对各模型影响",
@@ -1317,6 +1333,7 @@ def _plot_ablation_data(data_abl_results, train_ratios, benchmark_abl, colors_ab
 
 
 def _plot_ablation_mlp_arch(width_names, width_accs, depth_names, depth_accs, reg_names, reg_accs, act_names, act_accs):
+    """消融实验图 3：MLP 架构消融（宽度/深度/正则/激活）。"""
     print("  [3/5] MLP 架构消融...")
     fig3 = plt.figure(figsize=(18, 12))
     fig3.suptitle("消融实验 3: MLP 架构消融 — 宽度 / 深度 / 正则 / 激活函数",
@@ -1381,6 +1398,7 @@ def _plot_ablation_mlp_arch(width_names, width_accs, depth_names, depth_accs, re
 
 
 def _plot_ablation_preproc(preproc_results, preproc_models):
+    """消融实验图 4：预处理消融（标准化 vs 未标准化）。"""
     print("  [4/5] 预处理消融对比...")
     fig4 = plt.figure(figsize=(14, 8))
     fig4.suptitle("消融实验 4: 预处理消融 — 标准化 vs 未标准化",
@@ -1433,6 +1451,7 @@ def _plot_ablation_preproc(preproc_results, preproc_models):
 def _print_ablation_summary(feat_abl_results, base_feat, benchmark_abl, feature_names_abl,
                             data_abl_results, width_names, width_accs, depth_names, depth_accs,
                             reg_names, reg_accs, act_names, act_accs, preproc_results, preproc_models):
+    """打印消融实验文字总结。"""
     print("\n5. 消融实验综合总结")
 
     print("\n  [特征消融] 各模型最敏感的特征:")
@@ -1508,6 +1527,7 @@ def _print_ablation_summary(feat_abl_results, base_feat, benchmark_abl, feature_
 # main 入口
 
 def main():
+    """主流程：数据加载 → 训练 → 可视化 → 消融实验。"""
     os.makedirs("iris/output", exist_ok=True)
 
     # 1. 数据加载与预处理
