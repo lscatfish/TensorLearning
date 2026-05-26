@@ -170,9 +170,14 @@ def train_and_evaluate(models, X_raw, y_labels, class_names):
     all_trials = []
 
     for trial in range(N_TRIALS):
-        X_tr, X_te, y_tr, y_te = train_test_split(
-            X_raw, y_labels, test_size=0.3, stratify=y_labels
-        )
+        if trial == N_TRIALS - 1:
+            X_tr, X_te, y_tr, y_te = train_test_split(
+                X_raw, y_labels, test_size=0.3, stratify=y_labels, random_state=42
+            )
+        else:
+            X_tr, X_te, y_tr, y_te = train_test_split(
+                X_raw, y_labels, test_size=0.3, stratify=y_labels
+            )
         scaler = StandardScaler()
         X_tr_s = scaler.fit_transform(X_tr)
         X_te_s = scaler.transform(X_te)
@@ -209,6 +214,11 @@ def train_and_evaluate(models, X_raw, y_labels, class_names):
         gs_acc = accuracy_score(y_te, gs_pred)
         all_accs["MLP (GridSearch最佳)"].append(gs_acc)
         all_grid_params.append(gs.best_params_)
+        trial_preds["MLP (GridSearch最佳)"] = gs_pred.tolist()
+        trial_probs["MLP (GridSearch最佳)"] = gs.best_estimator_.predict_proba(X_te_s).tolist()
+        _, _, gs_f1, _ = precision_recall_fscore_support(y_te, gs_pred, zero_division=0)
+        trial_f1["MLP (GridSearch最佳)"] = gs_f1.tolist()
+        trial_models["MLP (GridSearch最佳)"] = gs.best_estimator_
         last_models = trial_models
         last_gs = gs
         last_best_mlp = gs.best_estimator_
@@ -216,20 +226,13 @@ def train_and_evaluate(models, X_raw, y_labels, class_names):
         last_X_te = X_te
         last_y_te = y_te
 
-        _, _, gs_f1, _ = precision_recall_fscore_support(y_te, gs_pred, zero_division=0)
-
         trial_record = {
             "true_labels": y_te.tolist(),
             "predictions": trial_preds,
             "probabilities": trial_probs,
             "f1": trial_f1,
             "accuracy": {name: float(all_accs[name][-1]) for name in all_accs},
-            "gridsearch": {
-                "predictions": gs_pred.tolist(),
-                "probabilities": gs.best_estimator_.predict_proba(X_te_s).tolist(),
-                "f1": gs_f1.tolist(),
-                "best_params": {k: (list(v) if isinstance(v, tuple) else v) for k, v in gs.best_params_.items()},
-            },
+            "gridsearch_best_params": {k: (list(v) if isinstance(v, tuple) else v) for k, v in gs.best_params_.items()},
         }
         all_trials.append(trial_record)
 
@@ -514,7 +517,7 @@ def plot_decision_boundaries(X_train, y_train, X_test, y_test, X_train_scaled, X
     plt.close(fig2)
 
 
-def plot_svm_analysis(X_train_scaled, y_train, X_test_scaled, y_test, models, class_names):
+def plot_svm_analysis(X_train_scaled, y_train, X_test_scaled, y_test, models, class_names, all_trials_data=None):
     """03 SVM 分析：C 值、gamma、混淆矩阵、支持向量统计。"""
     print("  [3/12] SVM 深入分析...")
     fig_svm = plt.figure(figsize=(16, 10))
@@ -565,7 +568,10 @@ def plot_svm_analysis(X_train_scaled, y_train, X_test_scaled, y_test, models, cl
                     xytext=(0, 8), ha="center", fontsize=9)
 
     ax = fig_svm.add_subplot(2, 2, 3)
-    cm_svm = confusion_matrix(y_test, models["SVM (RBF核)"].predict(X_test_scaled))
+    if all_trials_data is not None:
+        cm_svm, _ = _aggregate_cm(all_trials_data, "SVM (RBF核)")
+    else:
+        cm_svm = confusion_matrix(y_test, models["SVM (RBF核)"].predict(X_test_scaled))
     plt.rcParams["axes.unicode_minus"] = False
     ConfusionMatrixDisplay(cm_svm, display_labels=class_names).plot(
         ax=ax, cmap="Blues", colorbar=False, text_kw={"fontsize": 13})
@@ -587,7 +593,7 @@ def plot_svm_analysis(X_train_scaled, y_train, X_test_scaled, y_test, models, cl
     plt.close(fig_svm)
 
 
-def plot_logistic_regression(X_train_scaled, y_train, X_test_scaled, y_test, models, class_names, feature_names):
+def plot_logistic_regression(X_train_scaled, y_train, X_test_scaled, y_test, models, class_names, feature_names, all_trials_data=None):
     """04 逻辑回归分析：系数热力图、特征重要性、混淆矩阵、C 值扫描。"""
     print("  [4/12] 逻辑回归分析...")
     fig3 = plt.figure(figsize=(16, 10))
@@ -623,7 +629,10 @@ def plot_logistic_regression(X_train_scaled, y_train, X_test_scaled, y_test, mod
     ax.grid(True, alpha=0.3, axis="y")
 
     ax = fig3.add_subplot(2, 3, 4)
-    cm_lr = confusion_matrix(y_test, models["逻辑回归"].predict(X_test_scaled))
+    if all_trials_data is not None:
+        cm_lr, _ = _aggregate_cm(all_trials_data, "逻辑回归")
+    else:
+        cm_lr = confusion_matrix(y_test, models["逻辑回归"].predict(X_test_scaled))
     plt.rcParams["axes.unicode_minus"] = False
     ConfusionMatrixDisplay(cm_lr, display_labels=class_names).plot(
         ax=ax, cmap="Blues", colorbar=False, text_kw={"fontsize": 13})
@@ -667,7 +676,8 @@ def plot_logistic_regression(X_train_scaled, y_train, X_test_scaled, y_test, mod
 
 
 def plot_mlp_analysis(results, y_pred_best_mlp, best_mlp_acc, grid_search,
-                      X_train_scaled, y_train, X_test_scaled, y_test, class_names, feature_names):
+                      X_train_scaled, y_train, X_test_scaled, y_test, class_names, feature_names,
+                      all_trials_data=None):
     """05 MLP 分析：架构对比、损失曲线、混淆矩阵、GridSearch、alpha、激活函数。"""
     print("  [5/12] MLP 深入分析...")
     fig4 = plt.figure(figsize=(18, 12))
@@ -706,7 +716,10 @@ def plot_mlp_analysis(results, y_pred_best_mlp, best_mlp_acc, grid_search,
     ax.grid(True, alpha=0.3)
 
     ax = fig4.add_subplot(2, 3, 3)
-    cm_mlp = confusion_matrix(y_test, y_pred_best_mlp)
+    if all_trials_data is not None:
+        cm_mlp, best_mlp_acc = _aggregate_cm(all_trials_data, "MLP (GridSearch最佳)")
+    else:
+        cm_mlp = confusion_matrix(y_test, y_pred_best_mlp)
     plt.rcParams["axes.unicode_minus"] = False
     ConfusionMatrixDisplay(cm_mlp, display_labels=class_names).plot(
         ax=ax, cmap="Blues", colorbar=False, text_kw={"fontsize": 13})
@@ -788,7 +801,7 @@ def plot_mlp_analysis(results, y_pred_best_mlp, best_mlp_acc, grid_search,
     plt.close(fig4)
 
 
-def plot_random_forest(X_train_scaled, y_train, X_test_scaled, y_test, models, class_names, feature_names):
+def plot_random_forest(X_train_scaled, y_train, X_test_scaled, y_test, models, class_names, feature_names, all_trials_data=None):
     """06 随机森林分析：特征重要性、估计器数量、混淆矩阵、深度扫描。"""
     print("  [6/12] 随机森林分析...")
     fig5 = plt.figure(figsize=(16, 10))
@@ -827,7 +840,10 @@ def plot_random_forest(X_train_scaled, y_train, X_test_scaled, y_test, models, c
     ax.grid(True, alpha=0.3)
 
     ax = fig5.add_subplot(2, 2, 3)
-    cm_rf = confusion_matrix(y_test, models["随机森林"].predict(X_test_scaled))
+    if all_trials_data is not None:
+        cm_rf, _ = _aggregate_cm(all_trials_data, "随机森林")
+    else:
+        cm_rf = confusion_matrix(y_test, models["随机森林"].predict(X_test_scaled))
     plt.rcParams["axes.unicode_minus"] = False
     ConfusionMatrixDisplay(cm_rf, display_labels=class_names).plot(
         ax=ax, cmap="Blues", colorbar=False, text_kw={"fontsize": 13})
@@ -852,7 +868,7 @@ def plot_random_forest(X_train_scaled, y_train, X_test_scaled, y_test, models, c
     plt.close(fig5)
 
 
-def plot_gradient_boosting(X_train_scaled, y_train, X_test_scaled, y_test, models, class_names, feature_names):
+def plot_gradient_boosting(X_train_scaled, y_train, X_test_scaled, y_test, models, class_names, feature_names, all_trials_data=None):
     """07 梯度提升树分析：特征重要性、估计器数量、混淆矩阵、学习率。"""
     print("  [7/12] 梯度提升树分析...")
     fig_gbdt = plt.figure(figsize=(16, 10))
@@ -890,7 +906,10 @@ def plot_gradient_boosting(X_train_scaled, y_train, X_test_scaled, y_test, model
     ax.grid(True, alpha=0.3)
 
     ax = fig_gbdt.add_subplot(2, 2, 3)
-    cm_gbdt = confusion_matrix(y_test, models["梯度提升树"].predict(X_test_scaled))
+    if all_trials_data is not None:
+        cm_gbdt, _ = _aggregate_cm(all_trials_data, "梯度提升树")
+    else:
+        cm_gbdt = confusion_matrix(y_test, models["梯度提升树"].predict(X_test_scaled))
     plt.rcParams["axes.unicode_minus"] = False
     ConfusionMatrixDisplay(cm_gbdt, display_labels=class_names).plot(
         ax=ax, cmap="Blues", colorbar=False, text_kw={"fontsize": 13})
@@ -918,7 +937,7 @@ def plot_gradient_boosting(X_train_scaled, y_train, X_test_scaled, y_test, model
     plt.close(fig_gbdt)
 
 
-def plot_decision_tree(X_train_scaled, y_train, X_test_scaled, y_test, models, class_names, feature_names):
+def plot_decision_tree(X_train_scaled, y_train, X_test_scaled, y_test, models, class_names, feature_names, all_trials_data=None):
     """08 决策树分析：树可视化、深度影响、混淆矩阵。"""
     print("  [8/12] 决策树分析...")
     fig6 = plt.figure(figsize=(16, 10))
@@ -950,7 +969,10 @@ def plot_decision_tree(X_train_scaled, y_train, X_test_scaled, y_test, models, c
     ax.grid(True, alpha=0.3)
 
     ax = fig6.add_subplot(2, 2, 4)
-    cm_dt = confusion_matrix(y_test, models["决策树"].predict(X_test_scaled))
+    if all_trials_data is not None:
+        cm_dt, _ = _aggregate_cm(all_trials_data, "决策树")
+    else:
+        cm_dt = confusion_matrix(y_test, models["决策树"].predict(X_test_scaled))
     plt.rcParams["axes.unicode_minus"] = False
     ConfusionMatrixDisplay(cm_dt, display_labels=class_names).plot(
         ax=ax, cmap="Blues", colorbar=False, text_kw={"fontsize": 13})
@@ -961,7 +983,7 @@ def plot_decision_tree(X_train_scaled, y_train, X_test_scaled, y_test, models, c
     plt.close(fig6)
 
 
-def plot_naive_bayes(X_test_scaled, y_test, models, class_names, feature_names, colors_pie):
+def plot_naive_bayes(X_test_scaled, y_test, models, class_names, feature_names, colors_pie, all_trials_data=None):
     """09 朴素贝叶斯分析：各类别高斯分布参数、混淆矩阵。"""
     print("  [9/12] 朴素贝叶斯分析...")
     fig_nb = plt.figure(figsize=(14, 6))
@@ -983,7 +1005,10 @@ def plot_naive_bayes(X_test_scaled, y_test, models, class_names, feature_names, 
     ax.grid(True, alpha=0.3)
 
     ax = fig_nb.add_subplot(1, 2, 2)
-    cm_gnb = confusion_matrix(y_test, models["高斯朴素贝叶斯"].predict(X_test_scaled))
+    if all_trials_data is not None:
+        cm_gnb, _ = _aggregate_cm(all_trials_data, "高斯朴素贝叶斯")
+    else:
+        cm_gnb = confusion_matrix(y_test, models["高斯朴素贝叶斯"].predict(X_test_scaled))
     plt.rcParams["axes.unicode_minus"] = False
     ConfusionMatrixDisplay(cm_gnb, display_labels=class_names).plot(
         ax=ax, cmap="Blues", colorbar=False, text_kw={"fontsize": 13})
@@ -994,7 +1019,7 @@ def plot_naive_bayes(X_test_scaled, y_test, models, class_names, feature_names, 
     plt.close(fig_nb)
 
 
-def plot_knn(X_train_scaled, y_train, X_test_scaled, y_test, models, class_names, results):
+def plot_knn(X_train_scaled, y_train, X_test_scaled, y_test, models, class_names, results, all_trials_data=None):
     """10 KNN 分析：k 值扫描、混淆矩阵。"""
     print("  [10/12] KNN 分析...")
     fig_knn = plt.figure(figsize=(14, 6))
@@ -1017,7 +1042,10 @@ def plot_knn(X_train_scaled, y_train, X_test_scaled, y_test, models, class_names
     ax.grid(True, alpha=0.3)
 
     ax = fig_knn.add_subplot(1, 2, 2)
-    cm_knn = confusion_matrix(y_test, models["KNN (k=5)"].predict(X_test_scaled))
+    if all_trials_data is not None:
+        cm_knn, _ = _aggregate_cm(all_trials_data, "KNN (k=5)")
+    else:
+        cm_knn = confusion_matrix(y_test, models["KNN (k=5)"].predict(X_test_scaled))
     plt.rcParams["axes.unicode_minus"] = False
     ConfusionMatrixDisplay(cm_knn, display_labels=class_names).plot(
         ax=ax, cmap="Blues", colorbar=False, text_kw={"fontsize": 13})
@@ -1089,13 +1117,10 @@ def plot_summary(results_mean, results_std, last_models, last_X_te, last_y_te, l
     x = np.arange(3); w = 0.1
     for idx, name in enumerate(method_names):
         if all_trials_data is not None:
-            if name == "MLP (GridSearch最佳)":
-                all_f1 = [t["gridsearch"]["f1"] for t in all_trials_data["trials"]]
-            else:
-                all_f1 = [t["f1"][name] for t in all_trials_data["trials"]]
+            all_f1 = [t["f1"][name] for t in all_trials_data["trials"]]
             avg_f1 = np.mean(all_f1, axis=0)
         else:
-            ls = last_models.get(name) if name != "MLP (GridSearch最佳)" else last_best_mlp
+            ls = last_models.get(name)
             if ls is None:
                 continue
             pred = ls.predict(last_X_te) if hasattr(ls, 'predict') else last_y_pred_best
@@ -1116,7 +1141,7 @@ def plot_summary(results_mean, results_std, last_models, last_X_te, last_y_te, l
         ("SVM", "SVM (RBF核)"),
         ("随机森林", "随机森林"),
         ("KNN", "KNN (k=5)"),
-        ("MLP最佳", None),
+        ("MLP最佳", "MLP (GridSearch最佳)"),
         ("梯度提升树", "梯度提升树"),
     ]
     colors_roc = ["#FF6B6B", "#4ECDC4", "#45B7D1", "#FFA07A", "#98D8C8", "#DDA0DD"]
@@ -1124,19 +1149,15 @@ def plot_summary(results_mean, results_std, last_models, last_X_te, last_y_te, l
         if all_trials_data is not None:
             all_probs, all_true = [], []
             for t in all_trials_data["trials"]:
-                if key is None:
-                    all_probs.append(t["gridsearch"]["probabilities"])
-                elif key in t["probabilities"]:
+                if key in t["probabilities"]:
                     all_probs.append(t["probabilities"][key])
-                else:
-                    continue
-                all_true.append(t["true_labels"])
+                    all_true.append(t["true_labels"])
             if not all_probs:
                 continue
             combined_probs = np.concatenate([np.array(p) for p in all_probs])
             combined_true = np.concatenate([np.array(t_) for t_ in all_true])
         else:
-            model = last_best_mlp if key is None else last_models.get(key)
+            model = last_models.get(key)
             if model is None or not hasattr(model, "predict_proba"):
                 continue
             combined_probs = model.predict_proba(last_X_te)
@@ -1162,7 +1183,7 @@ def plot_summary(results_mean, results_std, last_models, last_X_te, last_y_te, l
         ("SVM", "SVM (RBF核)"),
         ("随机森林", "随机森林"),
         ("KNN", "KNN (k=5)"),
-        ("MLP最佳", None),
+        ("MLP最佳", "MLP (GridSearch最佳)"),
         ("梯度提升树", "梯度提升树"),
         ("决策树", "决策树"),
         ("朴素贝叶斯", "高斯朴素贝叶斯"),
@@ -1174,13 +1195,13 @@ def plot_summary(results_mean, results_std, last_models, last_X_te, last_y_te, l
         if all_trials_data is not None:
             all_preds, all_true = [], []
             for t in all_trials_data["trials"]:
-                all_preds.append(t["gridsearch"]["predictions"] if key is None else t["predictions"][key])
+                all_preds.append(t["predictions"][key])
                 all_true.append(t["true_labels"])
             combined_pred = np.concatenate([np.array(p) for p in all_preds])
             combined_true = np.concatenate([np.array(t) for t in all_true])
             cm = confusion_matrix(combined_true, combined_pred)
         else:
-            pred = last_y_pred_best if key is None else last_models[key].predict(last_X_te)
+            pred = last_models[key].predict(last_X_te)
             cm = confusion_matrix(last_y_te, pred)
         ConfusionMatrixDisplay(cm, display_labels=cm_labels).plot(
             ax=ax, cmap="Blues", colorbar=False, text_kw={"fontsize": 11})
@@ -1705,6 +1726,16 @@ def _print_ablation_summary(feat_abl_results, base_feat, benchmark_abl, feature_
 
 # main 入口
 
+def _aggregate_cm(all_trials_data, model_key):
+    all_preds, all_true = [], []
+    for t in all_trials_data["trials"]:
+        all_preds.append(t["predictions"][model_key])
+        all_true.append(t["true_labels"])
+    combined_pred = np.concatenate([np.array(p) for p in all_preds])
+    combined_true = np.concatenate([np.array(t) for t in all_true])
+    return confusion_matrix(combined_true, combined_pred), accuracy_score(combined_true, combined_pred)
+
+
 def _run_all_plots(session, all_trials_data):
     """给定完整 session 数据，运行全部可视化+消融。"""
     raw = session["raw"]
@@ -1719,22 +1750,23 @@ def _run_all_plots(session, all_trials_data):
     plot_decision_boundaries(split["X_tr_last"], split["y_tr_last"], split["X_te_last"], split["y_te_last"],
                              split["X_tr_s_last"], split["X_te_s_last"], raw["class_names"])
     plot_svm_analysis(split["X_tr_s_last"], split["y_tr_last"], split["X_te_s_last"], split["y_te_last"],
-                      models["last_models"], raw["class_names"])
+                      models["last_models"], raw["class_names"], all_trials_data=all_trials_data)
     plot_logistic_regression(split["X_tr_s_last"], split["y_tr_last"], split["X_te_s_last"], split["y_te_last"],
-                             models["last_models"], raw["class_names"], FEATURE_NAMES)
+                             models["last_models"], raw["class_names"], FEATURE_NAMES, all_trials_data=all_trials_data)
     plot_mlp_analysis(results["results_mean"], eval_split["last_y_pred_best"], eval_split["best_mlp_acc"],
                       models["last_gs"], split["X_tr_s_last"], split["y_tr_last"],
-                      split["X_te_s_last"], split["y_te_last"], raw["class_names"], FEATURE_NAMES)
+                      split["X_te_s_last"], split["y_te_last"], raw["class_names"], FEATURE_NAMES,
+                      all_trials_data=all_trials_data)
     plot_random_forest(split["X_tr_s_last"], split["y_tr_last"], split["X_te_s_last"], split["y_te_last"],
-                       models["last_models"], raw["class_names"], FEATURE_NAMES)
+                       models["last_models"], raw["class_names"], FEATURE_NAMES, all_trials_data=all_trials_data)
     plot_gradient_boosting(split["X_tr_s_last"], split["y_tr_last"], split["X_te_s_last"], split["y_te_last"],
-                           models["last_models"], raw["class_names"], FEATURE_NAMES)
+                           models["last_models"], raw["class_names"], FEATURE_NAMES, all_trials_data=all_trials_data)
     plot_decision_tree(split["X_tr_s_last"], split["y_tr_last"], split["X_te_s_last"], split["y_te_last"],
-                       models["last_models"], raw["class_names"], FEATURE_NAMES)
+                       models["last_models"], raw["class_names"], FEATURE_NAMES, all_trials_data=all_trials_data)
     plot_naive_bayes(split["X_te_s_last"], split["y_te_last"], models["last_models"],
-                     raw["class_names"], FEATURE_NAMES, COLORS_PIE)
+                     raw["class_names"], FEATURE_NAMES, COLORS_PIE, all_trials_data=all_trials_data)
     plot_knn(split["X_tr_s_last"], split["y_tr_last"], split["X_te_s_last"], split["y_te_last"],
-             models["last_models"], raw["class_names"], results["results_mean"])
+             models["last_models"], raw["class_names"], results["results_mean"], all_trials_data=all_trials_data)
     plot_mlp_training_curves(split["X_tr_s_last"], split["y_tr_last"], split["X_te_s_last"], split["y_te_last"])
     plot_summary(results["results_mean"], results["results_std"], models["last_models"],
                  eval_split["last_X_te"], eval_split["last_y_te"], eval_split["last_y_pred_best"],
@@ -1782,7 +1814,7 @@ def main():
 
     # 5. 准备末次 trial 的可视化数据（与 train_and_evaluate 内部的末次 split 无关，独立生成）
     X_tr_last, X_te_last, y_tr_last, y_te_last = train_test_split(
-        X_raw, y_labels, test_size=0.3, stratify=y_labels
+        X_raw, y_labels, test_size=0.3, stratify=y_labels, random_state=42
     )
     scaler_last = StandardScaler()
     X_tr_s_last = scaler_last.fit_transform(X_tr_last)
