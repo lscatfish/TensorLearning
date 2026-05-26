@@ -51,6 +51,7 @@ from sklearn.tree import DecisionTreeClassifier, plot_tree
 from sklearn.naive_bayes import GaussianNB
 from sklearn.decomposition import PCA
 import os
+import json
 
 
 # 常量
@@ -153,13 +154,14 @@ def define_models():
 
 
 def train_and_evaluate(models, X_raw, y_labels, class_names):
-    """N_TRIALS 次试验，返回平均测试准确率、标准差、最后一次的模型等。"""
+    """N_TRIALS 次试验，收集全部 trial 数据，保存 JSON，返回汇总+末次+全量数据。"""
     print(f"\n2. 机器学习模型训练与评估 ({N_TRIALS} 次试验)")
 
     all_accs = {name: [] for name in models}
     all_accs["MLP (GridSearch最佳)"] = []
     all_grid_params = []
     last_models = {}
+    all_trials = []
 
     for trial in range(N_TRIALS):
         X_tr, X_te, y_tr, y_te = train_test_split(
@@ -170,12 +172,22 @@ def train_and_evaluate(models, X_raw, y_labels, class_names):
         X_te_s = scaler.transform(X_te)
 
         trial_models = {}
+        trial_preds = {}
+        trial_probs = {}
+        trial_f1 = {}
+
         for name, model in models.items():
             m = clone(model)
             m.fit(X_tr_s, y_tr)
-            acc = accuracy_score(y_te, m.predict(X_te_s))
+            pred = m.predict(X_te_s)
+            acc = accuracy_score(y_te, pred)
             all_accs[name].append(acc)
             trial_models[name] = m
+            trial_preds[name] = pred.tolist()
+            if hasattr(m, "predict_proba"):
+                trial_probs[name] = m.predict_proba(X_te_s).tolist()
+            _, _, f1, _ = precision_recall_fscore_support(y_te, pred, zero_division=0)
+            trial_f1[name] = f1.tolist()
 
         param_grid = {
             "hidden_layer_sizes": [(16, 8), (32, 16, 8), (64, 32), (32, 8)],
@@ -187,26 +199,53 @@ def train_and_evaluate(models, X_raw, y_labels, class_names):
             param_grid, cv=5, scoring="accuracy", n_jobs=-1,
         )
         gs.fit(X_tr_s, y_tr)
-        gs_acc = accuracy_score(y_te, gs.best_estimator_.predict(X_te_s))
+        gs_pred = gs.best_estimator_.predict(X_te_s)
+        gs_acc = accuracy_score(y_te, gs_pred)
         all_accs["MLP (GridSearch最佳)"].append(gs_acc)
         all_grid_params.append(gs.best_params_)
         last_models = trial_models
         last_gs = gs
         last_best_mlp = gs.best_estimator_
-        last_y_pred_best = gs.best_estimator_.predict(X_te_s)
+        last_y_pred_best = gs_pred
         last_X_te = X_te
         last_y_te = y_te
 
-    results_mean = {n: np.mean(all_accs[n]) for n in all_accs}
-    results_std = {n: np.std(all_accs[n]) for n in all_accs}
+        _, _, gs_f1, _ = precision_recall_fscore_support(y_te, gs_pred, zero_division=0)
+
+        trial_record = {
+            "true_labels": y_te.tolist(),
+            "predictions": trial_preds,
+            "probabilities": trial_probs,
+            "f1": trial_f1,
+            "accuracy": {name: float(all_accs[name][-1]) for name in all_accs},
+            "gridsearch": {
+                "predictions": gs_pred.tolist(),
+                "probabilities": gs.best_estimator_.predict_proba(X_te_s).tolist(),
+                "f1": gs_f1.tolist(),
+                "best_params": {k: (list(v) if isinstance(v, tuple) else v) for k, v in gs.best_params_.items()},
+            },
+        }
+        all_trials.append(trial_record)
+
+    results_mean = {n: float(np.mean(all_accs[n])) for n in all_accs}
+    results_std = {n: float(np.std(all_accs[n])) for n in all_accs}
 
     print("\n  各方法测试准确率 (mean ± std):")
     for name in sorted(results_mean, key=results_mean.get, reverse=True):
         print(f"    {name:　<18s}  {results_mean[name]:.4f} ± {results_std[name]:.4f}")
 
-    print(f"\n  GridSearch 最常见最优参数: {max(set(tuple(sorted(p.items())) for p in all_grid_params), key=lambda x: all_grid_params.count(dict(x)))}")
+    best_param_str = max(set(tuple(sorted(p.items())) for p in all_grid_params), key=lambda x: all_grid_params.count(dict(x)))
+    print(f"\n  GridSearch 最常见最优参数: {best_param_str}")
 
-    return results_mean, results_std, last_models, last_y_pred_best, accuracy_score(last_y_te, last_y_pred_best), last_gs, last_best_mlp, last_X_te, last_y_te
+    all_trials_data = {
+        "meta": {"n_trials": N_TRIALS, "class_names": list(class_names)},
+        "trials": all_trials,
+        "results_mean": results_mean,
+        "results_std": results_std,
+    }
+    _save_json(all_trials_data)
+
+    return results_mean, results_std, last_models, last_y_pred_best, accuracy_score(last_y_te, last_y_pred_best), last_gs, last_best_mlp, last_X_te, last_y_te, all_trials_data
 
 
 def run_cross_validation(X_raw, y_labels):
@@ -241,6 +280,43 @@ def run_cross_validation(X_raw, y_labels):
         print(f"    {name:　<14s}  {cv_results[name][0]:.4f} ± {cv_results[name][1]:.4f}")
 
     return cv_results
+
+
+JSON_PATH = "iris/output/experiment_results.json"
+
+
+class _NumpyEncoder(json.JSONEncoder):
+    """将 numpy 类型安全转为 JSON。"""
+    def default(self, obj):
+        if isinstance(obj, np.ndarray):
+            return obj.tolist()
+        if isinstance(obj, np.integer):
+            return int(obj)
+        if isinstance(obj, np.floating):
+            return float(obj)
+        if isinstance(obj, np.bool_):
+            return bool(obj)
+        return super().default(obj)
+
+
+def _save_json(all_trials_data):
+    """保存多 trial 数据到 JSON。"""
+    os.makedirs(os.path.dirname(JSON_PATH), exist_ok=True)
+    with open(JSON_PATH, "w", encoding="utf-8") as f:
+        json.dump(all_trials_data, f, ensure_ascii=False, indent=2, cls=_NumpyEncoder)
+    print(f"\n  试验数据已保存至 {JSON_PATH}")
+
+
+def load_experiment_json(path=None):
+    """从 JSON 读取多 trial 数据。"""
+    path = path or JSON_PATH
+    if not os.path.exists(path):
+        print(f"  JSON 文件不存在: {path}")
+        return None
+    with open(path, "r", encoding="utf-8") as f:
+        data = json.load(f)
+    print(f"  已加载 {data['meta']['n_trials']} 次试验数据 ({path})")
+    return data
 
 
 def print_summary(results_mean, results_std, cv_results):
@@ -943,13 +1019,16 @@ def plot_mlp_training_curves(X_train_scaled, y_train, X_test_scaled, y_test):
     plt.close(fig_mlp_curves)
 
 
-def plot_summary(results_mean, results_std, last_models, last_X_te, last_y_te, last_y_pred_best, last_best_mlp, class_names, cv_results):
-    """12 综合对比：准确率(含误差)、F1、ROC、所有混淆矩阵汇总。"""
+def plot_summary(results_mean, results_std, last_models, last_X_te, last_y_te, last_y_pred_best, last_best_mlp, class_names, cv_results, all_trials_data=None):
+    """12 综合对比：准确率(含误差)、F1、ROC、所有混淆矩阵汇总。
+
+    如果 all_trials_data 不为 None，F1/CM/ROC 使用全部 trial 聚合数据而非末次。
+    """
     print("  [12/12] 综合总结图...")
     fig8 = plt.figure(figsize=(14, 28))
-    fig8.suptitle("Iris 鸢尾花分类 — 8种方法综合对比", fontsize=18, fontweight="bold")
+    fig8.suptitle("Iris 鸢尾花分类 — 8种方法综合对比", fontsize=18, fontweight="bold", y=0.97)
 
-    gs8 = GridSpec(7, 2, figure=fig8, hspace=0.4, wspace=0.35)
+    gs8 = GridSpec(7, 2, figure=fig8, hspace=0.3, wspace=0.35)
 
     ax = fig8.add_subplot(gs8[0, :])
     method_names = list(results_mean.keys())
@@ -966,68 +1045,106 @@ def plot_summary(results_mean, results_std, last_models, last_X_te, last_y_te, l
                 f"{acc:.1f}±{err:.1f}", va="center", fontsize=9, fontweight="bold")
     ax.grid(True, alpha=0.3, axis="x")
 
+    # F1 — 多 trial 平均
     ax = fig8.add_subplot(gs8[1, :])
     x = np.arange(3); w = 0.1
     for idx, name in enumerate(method_names):
-        ls = last_models.get(name) if name != "MLP (GridSearch最佳)" else last_best_mlp
-        if ls is not None:
+        if all_trials_data is not None:
+            if name == "MLP (GridSearch最佳)":
+                all_f1 = [t["gridsearch"]["f1"] for t in all_trials_data["trials"]]
+            else:
+                all_f1 = [t["f1"][name] for t in all_trials_data["trials"]]
+            avg_f1 = np.mean(all_f1, axis=0)
+        else:
+            ls = last_models.get(name) if name != "MLP (GridSearch最佳)" else last_best_mlp
+            if ls is None:
+                continue
             pred = ls.predict(last_X_te) if hasattr(ls, 'predict') else last_y_pred_best
-            _, _, f1, _ = precision_recall_fscore_support(last_y_te, pred, zero_division=0)
-            ax.bar(x + idx * w - w * (len(method_names) / 2), f1, w,
-                   label=name, alpha=0.85, edgecolor="white")
+            _, _, avg_f1, _ = precision_recall_fscore_support(last_y_te, pred, zero_division=0)
+        ax.bar(x + idx * w - w * (len(method_names) / 2), avg_f1, w,
+               label=name, alpha=0.85, edgecolor="white")
     ax.set_xticks(x)
     ax.set_xticklabels(class_names)
     ax.set_ylim(0, 1.15)
-    ax.set_title("各类别 F1-Score 对比 (末次试验)", fontsize=13, fontweight="bold")
+    ax.set_title(f"各类别 F1-Score 对比 ({N_TRIALS} 次试验平均)", fontsize=13, fontweight="bold")
     ax.legend(fontsize=6, ncol=2)
     ax.grid(True, alpha=0.3, axis="y")
 
+    # ROC — 多 trial 拼接
     ax = fig8.add_subplot(gs8[2, :])
-    y_test_bin = label_binarize(last_y_te, classes=[0, 1, 2])
-    roc_models = {
-        "逻辑回归": last_models["逻辑回归"],
-        "SVM": last_models["SVM (RBF核)"],
-        "随机森林": last_models["随机森林"],
-        "KNN": last_models["KNN (k=5)"],
-        "MLP最佳": last_best_mlp,
-        "梯度提升树": last_models["梯度提升树"],
-    }
+    roc_entries = [
+        ("逻辑回归", "逻辑回归"),
+        ("SVM", "SVM (RBF核)"),
+        ("随机森林", "随机森林"),
+        ("KNN", "KNN (k=5)"),
+        ("MLP最佳", None),
+        ("梯度提升树", "梯度提升树"),
+    ]
     colors_roc = ["#FF6B6B", "#4ECDC4", "#45B7D1", "#FFA07A", "#98D8C8", "#DDA0DD"]
-    for (name, model), color in zip(roc_models.items(), colors_roc):
-        if hasattr(model, "predict_proba"):
-            y_score = model.predict_proba(last_X_te)
-            for i in range(3):
-                fpr, tpr, _ = roc_curve(y_test_bin[:, i], y_score[:, i])
-                roc_auc = auc(fpr, tpr)
-                if i == 0:
-                    ax.plot(fpr, tpr, color=color, linewidth=2,
-                            label=f"{name} (AUC={roc_auc:.3f})")
+    for (disp_name, key), color in zip(roc_entries, colors_roc):
+        if all_trials_data is not None:
+            all_probs, all_true = [], []
+            for t in all_trials_data["trials"]:
+                if key is None:
+                    all_probs.append(t["gridsearch"]["probabilities"])
+                elif key in t["probabilities"]:
+                    all_probs.append(t["probabilities"][key])
+                else:
+                    continue
+                all_true.append(t["true_labels"])
+            if not all_probs:
+                continue
+            combined_probs = np.concatenate([np.array(p) for p in all_probs])
+            combined_true = np.concatenate([np.array(t_) for t_ in all_true])
+        else:
+            model = last_best_mlp if key is None else last_models.get(key)
+            if model is None or not hasattr(model, "predict_proba"):
+                continue
+            combined_probs = model.predict_proba(last_X_te)
+            combined_true = last_y_te
+        y_test_bin = label_binarize(combined_true, classes=[0, 1, 2])
+        for i in range(3):
+            fpr, tpr, _ = roc_curve(y_test_bin[:, i], combined_probs[:, i])
+            roc_auc = auc(fpr, tpr)
+            if i == 0:
+                ax.plot(fpr, tpr, color=color, linewidth=2,
+                        label=f"{disp_name} (AUC={roc_auc:.3f})")
     ax.plot([0, 1], [0, 1], "k--", alpha=0.4)
     ax.set_xlabel("假正率 (FPR)")
     ax.set_ylabel("真正率 (TPR)")
-    ax.set_title("ROC 曲线对比 (OvR, 以 setosa 类为例)", fontsize=14, fontweight="bold")
+    ax.set_title(f"ROC 曲线对比 ({N_TRIALS} 次试验拼接, OvR, 以 setosa 类为例)", fontsize=14, fontweight="bold")
     ax.legend(fontsize=8, ncol=2)
     ax.grid(True, alpha=0.3)
 
-    cm_list = [
-        ("逻辑回归", last_models["逻辑回归"].predict(last_X_te)),
-        ("SVM", last_models["SVM (RBF核)"].predict(last_X_te)),
-        ("随机森林", last_models["随机森林"].predict(last_X_te)),
-        ("KNN", last_models["KNN (k=5)"].predict(last_X_te)),
-        ("MLP最佳", last_y_pred_best),
-        ("梯度提升树", last_models["梯度提升树"].predict(last_X_te)),
-        ("决策树", last_models["决策树"].predict(last_X_te)),
-        ("朴素贝叶斯", last_models["高斯朴素贝叶斯"].predict(last_X_te)),
+    # 混淆矩阵 — 多 trial 拼接
+    cm_entries = [
+        ("逻辑回归", "逻辑回归"),
+        ("SVM", "SVM (RBF核)"),
+        ("随机森林", "随机森林"),
+        ("KNN", "KNN (k=5)"),
+        ("MLP最佳", None),
+        ("梯度提升树", "梯度提升树"),
+        ("决策树", "决策树"),
+        ("朴素贝叶斯", "高斯朴素贝叶斯"),
     ]
-    for idx, (name, pred) in enumerate(cm_list):
+    for idx, (disp_name, key) in enumerate(cm_entries):
         row = 3 + idx // 2
         col = idx % 2
         ax = fig8.add_subplot(gs8[row, col])
-        cm = confusion_matrix(last_y_te, pred)
+        if all_trials_data is not None:
+            all_preds, all_true = [], []
+            for t in all_trials_data["trials"]:
+                all_preds.append(t["gridsearch"]["predictions"] if key is None else t["predictions"][key])
+                all_true.append(t["true_labels"])
+            combined_pred = np.concatenate([np.array(p) for p in all_preds])
+            combined_true = np.concatenate([np.array(t) for t in all_true])
+            cm = confusion_matrix(combined_true, combined_pred)
+        else:
+            pred = last_y_pred_best if key is None else last_models[key].predict(last_X_te)
+            cm = confusion_matrix(last_y_te, pred)
         ConfusionMatrixDisplay(cm, display_labels=class_names).plot(
-            ax=ax, cmap="Blues", colorbar=False, text_kw={"fontsize": 11},
-            im_kw={"vmin": 0, "vmax": 15})
-        ax.set_title(f"{name} (末次)", fontsize=12, fontweight="bold")
+            ax=ax, cmap="Blues", colorbar=False, text_kw={"fontsize": 11})
+        ax.set_title(f"{disp_name} ({N_TRIALS}次合并)", fontsize=12, fontweight="bold")
 
     fig8.tight_layout()
     fig8.savefig("iris/output/12_summary.svg", bbox_inches="tight")
@@ -1551,14 +1668,34 @@ def _print_ablation_summary(feat_abl_results, base_feat, benchmark_abl, feature_
 
 def main():
     """主流程：数据加载 → 多轮训练 → 可视化 → 消融实验。"""
+    import argparse
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--from-json", action="store_true",
+                        help="从 JSON 加载已有试验数据重绘 summary 图（跳过训练）")
+    args = parser.parse_args()
+
     os.makedirs("iris/output", exist_ok=True)
 
     # 1. 数据加载与预处理（只用原始数据，多轮试验内部自行划分）
     X_raw, y_raw, _, _, _, _, _, _, _, class_names, y_labels = load_and_preprocess_data()
 
+    if args.from_json:
+        data = load_experiment_json()
+        if data is None:
+            return
+        results_mean = data["results_mean"]
+        results_std = data["results_std"]
+        cv_results = None
+        class_names = data["meta"]["class_names"]
+        print("  --from-json 模式: 仅重绘 summary 图")
+        print("  (如需全部图表, 请不加 --from-json 完整运行)")
+        plot_summary(results_mean, results_std, {}, None, None, None, None, class_names, None, all_trials_data=data)
+        print("\n完成!")
+        return
+
     # 2. 模型定义与多轮训练
     models = define_models()
-    results_mean, results_std, last_models, last_y_pred_best, best_mlp_acc, last_gs, last_best_mlp, last_X_te, last_y_te = train_and_evaluate(
+    results_mean, results_std, last_models, last_y_pred_best, best_mlp_acc, last_gs, last_best_mlp, last_X_te, last_y_te, all_trials_data = train_and_evaluate(
         models, X_raw, y_labels, class_names
     )
 
@@ -1590,7 +1727,7 @@ def main():
     plot_naive_bayes(X_te_s_last, y_te_last, last_models, class_names, FEATURE_NAMES, COLORS_PIE)
     plot_knn(X_tr_s_last, y_tr_last, X_te_s_last, y_te_last, last_models, class_names, results_mean)
     plot_mlp_training_curves(X_tr_s_last, y_tr_last, X_te_s_last, y_te_last)
-    plot_summary(results_mean, results_std, last_models, last_X_te, last_y_te, last_y_pred_best, last_best_mlp, class_names, cv_results)
+    plot_summary(results_mean, results_std, last_models, last_X_te, last_y_te, last_y_pred_best, last_best_mlp, class_names, cv_results, all_trials_data=all_trials_data)
     plot_cv_comparison(cv_results)
 
     # 6. 消融实验
