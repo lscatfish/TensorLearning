@@ -1,10 +1,8 @@
 import warnings
+import logging
 import numpy as np
 import matplotlib
 import platform
-
-warnings.filterwarnings("ignore", category=UserWarning, message=".*Glyph.*U+2212.*")
-warnings.filterwarnings("ignore")
 
 system = platform.system()
 if system == "Windows":
@@ -25,6 +23,12 @@ matplotlib.rcParams.update({
 
 import matplotlib.pyplot as plt
 import matplotlib.font_manager as fm
+
+logging.getLogger('matplotlib.font_manager').setLevel(logging.ERROR)
+logging.getLogger('matplotlib').setLevel(logging.ERROR)
+
+warnings.filterwarnings("ignore", category=UserWarning, message=".*Glyph.*U+2212.*")
+warnings.filterwarnings("ignore")
 
 from matplotlib.gridspec import GridSpec
 from sklearn.model_selection import train_test_split, cross_val_score, GridSearchCV, StratifiedKFold
@@ -196,7 +200,7 @@ def train_and_evaluate(models, X_raw, y_labels, class_names):
         }
         gs = GridSearchCV(
             MLPClassifier(solver="adam", max_iter=1000),
-            param_grid, cv=5, scoring="accuracy", n_jobs=1,
+            param_grid, cv=5, scoring="accuracy", n_jobs=4,
         )
         gs.fit(X_tr_s, y_tr)
         gs_pred = gs.best_estimator_.predict(X_te_s)
