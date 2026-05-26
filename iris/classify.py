@@ -1235,7 +1235,7 @@ def plot_cv_comparison(cv_results):
     ax.set_title("交叉验证结果", fontsize=14, fontweight="bold")
     ax.set_xlim(0, 110)
     for bar, mean, std in zip(bars, cv_means, cv_stds):
-        ax.text(bar.get_width() + 1, bar.get_y() + bar.get_height() / 2,
+        ax.text(bar.get_width() + 6, bar.get_y() + bar.get_height() / 2,
                 f"{mean:.1f}%±{std:.1f}%", va="center", fontsize=9)
     ax.grid(True, alpha=0.3, axis="x")
 
