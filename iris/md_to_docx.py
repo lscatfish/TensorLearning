@@ -372,8 +372,10 @@ def convert_md_to_docx(md_path, docx_path):
             p = doc.add_paragraph()
             add_text_to_paragraph(p, text, size=Pt(10.5))
             for run in p.runs:
-                run.font.name = 'Courier New'
-                run._element.rPr.rFonts.set(qn('w:eastAsia'), 'Courier New')
+                run.font.name = WESTERN_FONT
+                run._element.rPr.rFonts.set(qn('w:eastAsia'), WESTERN_FONT)
+                run._element.rPr.rFonts.set(qn('w:hAnsi'), WESTERN_FONT)
+                run._element.rPr.rFonts.set(qn('w:cs'), WESTERN_FONT)
             p.paragraph_format.left_indent = Cm(1)
             p.paragraph_format.line_spacing_rule = WD_LINE_SPACING.SINGLE
             p.paragraph_format.space_after = Pt(6)
