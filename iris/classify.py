@@ -506,6 +506,7 @@ def plot_svm_analysis(X_train_scaled, y_train, X_test_scaled, y_test, models, cl
     ax.set_xlabel("C (正则化参数)")
     ax.set_ylabel("测试准确率")
     ax.set_title("C 值对准确率的影响", fontsize=13, fontweight="bold")
+    ax.set_ylim(0.7, 1.0)
     ax.grid(True, alpha=0.3)
     for c, a in zip(C_values, c_accs):
         ax.annotate(f"{a:.3f}", (c, a), textcoords="offset points", xytext=(0, 8),
@@ -531,7 +532,7 @@ def plot_svm_analysis(X_train_scaled, y_train, X_test_scaled, y_test, models, cl
     ax.set_xlabel("gamma")
     ax.set_ylabel("测试准确率")
     ax.set_title("gamma 对准确率的影响 (C=1.0)", fontsize=13, fontweight="bold")
-    ax.set_ylim(0, 1.05)
+    ax.set_ylim(0.7, 1.0)
     ax.grid(True, alpha=0.3)
     for i, a in enumerate(gamma_accs):
         ax.annotate(f"{a:.3f}", (i, a), textcoords="offset points",
@@ -1032,7 +1033,8 @@ def plot_summary(results_mean, results_std, last_models, last_X_te, last_y_te, l
     fig8 = plt.figure(figsize=(14, 28))
     fig8.suptitle("Iris 鸢尾花分类 — 8种方法综合对比", fontsize=18, fontweight="bold", y=0.97)
 
-    gs8 = GridSpec(7, 2, figure=fig8, hspace=0.3, wspace=0.35)
+    gs8 = GridSpec(7, 2, figure=fig8, hspace=0.3, wspace=0.35,
+                   top=0.93, bottom=0.03)
 
     ax = fig8.add_subplot(gs8[0, :])
     method_names = list(results_mean.keys())
@@ -1120,7 +1122,8 @@ def plot_summary(results_mean, results_std, last_models, last_X_te, last_y_te, l
     ax.legend(fontsize=8, ncol=2)
     ax.grid(True, alpha=0.3)
 
-    # 混淆矩阵 — 多 trial 拼接
+    # 混淆矩阵 — 多 trial 拼接（标签去掉 Iris- 前缀避免密集）
+    cm_labels = [n.replace("Iris-", "") for n in class_names]
     cm_entries = [
         ("逻辑回归", "逻辑回归"),
         ("SVM", "SVM (RBF核)"),
@@ -1146,11 +1149,10 @@ def plot_summary(results_mean, results_std, last_models, last_X_te, last_y_te, l
         else:
             pred = last_y_pred_best if key is None else last_models[key].predict(last_X_te)
             cm = confusion_matrix(last_y_te, pred)
-        ConfusionMatrixDisplay(cm, display_labels=class_names).plot(
+        ConfusionMatrixDisplay(cm, display_labels=cm_labels).plot(
             ax=ax, cmap="Blues", colorbar=False, text_kw={"fontsize": 11})
         ax.set_title(f"{disp_name} ({N_TRIALS}次合并)", fontsize=12, fontweight="bold")
 
-    fig8.tight_layout()
     fig8.savefig("iris/output/12_summary.svg", bbox_inches="tight")
     plt.close(fig8)
 
