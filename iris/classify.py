@@ -184,7 +184,7 @@ def train_and_evaluate(models, X_raw, y_labels, class_names):
         }
         gs = GridSearchCV(
             MLPClassifier(solver="adam", max_iter=1000),
-            param_grid, cv=5, scoring="accuracy", n_jobs=1,
+            param_grid, cv=5, scoring="accuracy", n_jobs=-1,
         )
         gs.fit(X_tr_s, y_tr)
         gs_acc = accuracy_score(y_te, gs.best_estimator_.predict(X_te_s))
@@ -947,9 +947,9 @@ def plot_summary(results_mean, results_std, last_models, last_X_te, last_y_te, l
     """12 综合对比：准确率(含误差)、F1、ROC、所有混淆矩阵汇总。"""
     print("  [12/12] 综合总结图...")
     fig8 = plt.figure(figsize=(14, 28))
-    fig8.suptitle("Iris 鸢尾花分类 — 8种方法综合对比", fontsize=18, fontweight="bold", y=0.97)
+    fig8.suptitle("Iris 鸢尾花分类 — 8种方法综合对比", fontsize=18, fontweight="bold")
 
-    gs8 = GridSpec(7, 2, figure=fig8, hspace=0.3, wspace=0.35)
+    gs8 = GridSpec(7, 2, figure=fig8, hspace=0.4, wspace=0.35)
 
     ax = fig8.add_subplot(gs8[0, :])
     method_names = list(results_mean.keys())
