@@ -135,8 +135,9 @@ def replace_math_in_docx(docx_path):
 def remove_spaces_between_languages(text):
     if not text:
         return text
-    text = re.sub(r'([\u4e00-\u9fff\u3000-\u303f\uff00-\uffef])\s+([\w%+\-<>=^*/()\[\]{}])', r'\1\2', text)
-    text = re.sub(r'([\w%+\-<>=^*/()\[\]{}])\s+([\u4e00-\u9fff\u3000-\u303f\uff00-\uffef])', r'\1\2', text)
+    text = re.sub(r'([\u4e00-\u9fff\u3000-\u303f\uff00-\uffef])\s+([\w%+\-<>=^*/±()\[\]{}])', r'\1\2', text)
+    text = re.sub(r'([\w%+\-<>=^*/±()\[\]{}])\s+([\u4e00-\u9fff\u3000-\u303f\uff00-\uffef])', r'\1\2', text)
+    text = re.sub(r'([\d%.])\s+±\s+([\d%.])', r'\1±\2', text)
     text = re.sub(r'\s{2,}', ' ', text)
     text = text.strip()
     return text
@@ -215,6 +216,30 @@ def convert_md_to_docx(md_path, docx_path):
 
     with open(md_path, 'r', encoding='utf-8') as f:
         md_text = f.read()
+
+    # 转换直引号为中文弯引号（保护行内代码块）
+    def convert_quotes(text):
+        parts = re.split(r'(`[^`]*`)', text)
+        result = []
+        for part in parts:
+            if part.startswith('`') and part.endswith('`'):
+                result.append(part)
+            else:
+                count = part.count('"')
+                if count > 0:
+                    new = ''
+                    toggle = True
+                    for ch in part:
+                        if ch == '"':
+                            new += '\u201c' if toggle else '\u201d'
+                            toggle = not toggle
+                        else:
+                            new += ch
+                    result.append(new)
+                else:
+                    result.append(part)
+        return ''.join(result)
+    md_text = convert_quotes(md_text)
 
     # 去掉 SVG 图片引用
     md_text = re.sub(r'!\[([^\]]*)\]\(([^)]+)\)', r'[图：\1]', md_text)
