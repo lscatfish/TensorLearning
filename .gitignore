@@ -20,4 +20,3 @@ package-lock.json
 # Opencode
 opencode.json
 .opencode/
-iris/report.md
