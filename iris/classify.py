@@ -83,6 +83,7 @@ def load_and_preprocess_data():
     class_names = np.unique(y_raw)
     class_to_idx = {c: i for i, c in enumerate(class_names)}
     y_labels = np.array([class_to_idx[c] for c in y_raw])
+    class_names = np.array([c.replace("Iris-", "") for c in class_names])
 
     print(f"  样本数: {X_raw.shape[0]}")
     print(f"  特征数: {X_raw.shape[1]} (花萼长、花萼宽、花瓣长、花瓣宽)")
@@ -398,9 +399,9 @@ def plot_data_exploration(X_raw, y_labels, class_names, colors_pie):
     """01 数据探索：散点图、饼图、箱线图。"""
     print("  [1/12] 数据探索...")
     fig1 = plt.figure(figsize=(16, 12))
-    fig1.suptitle("Iris 数据集探索", fontsize=18, fontweight="bold", y=0.98)
+    fig1.suptitle("Iris 数据集探索", fontsize=18, fontweight="bold", y=0.97)
 
-    gs = GridSpec(3, 3, figure=fig1, hspace=0.4, wspace=0.35)
+    gs = GridSpec(3, 3, figure=fig1, hspace=0.4, wspace=0.35, top=0.91, height_ratios=[1, 1, 1.3])
 
     ax = fig1.add_subplot(gs[0, :])
     for i, cls in enumerate(class_names):
@@ -475,7 +476,8 @@ def plot_decision_boundaries(X_train, y_train, X_test, y_test, X_train_scaled, X
     X2_all = np.vstack([X2_train, X2_test])
     y2_all = np.concatenate([y_train, y_test])
 
-    fig2, axes = plt.subplots(2, 4, figsize=(24, 12))
+    fig2, axes = plt.subplots(4, 2, figsize=(12, 24))
+    fig2.subplots_adjust(top=0.94, hspace=0.25)
     fig2.suptitle("各模型决策边界对比 (花瓣长 vs 花瓣宽)", fontsize=16, fontweight="bold")
     axes = axes.flatten()
 
@@ -589,6 +591,7 @@ def plot_logistic_regression(X_train_scaled, y_train, X_test_scaled, y_test, mod
     """04 逻辑回归分析：系数热力图、特征重要性、混淆矩阵、C 值扫描。"""
     print("  [4/12] 逻辑回归分析...")
     fig3 = plt.figure(figsize=(16, 10))
+    fig3.subplots_adjust(hspace=0.35)
     fig3.suptitle("逻辑回归 — 详细分析", fontsize=16, fontweight="bold")
 
     ax = fig3.add_subplot(2, 3, (1, 2))
@@ -637,7 +640,7 @@ def plot_logistic_regression(X_train_scaled, y_train, X_test_scaled, y_test, mod
     ax.set_xticklabels(class_names)
     ax.set_ylim(0, 1.1)
     ax.set_title("各类别指标", fontsize=13, fontweight="bold")
-    ax.legend(fontsize=9)
+    ax.legend(fontsize=9, loc="lower right")
     ax.grid(True, alpha=0.3, axis="y")
 
     C_values_lr = [0.001, 0.01, 0.1, 1, 10, 100]
@@ -652,6 +655,7 @@ def plot_logistic_regression(X_train_scaled, y_train, X_test_scaled, y_test, mod
     ax.set_xlabel("C (正则化强度)")
     ax.set_ylabel("测试准确率")
     ax.set_title("C 值对逻辑回归的影响", fontsize=13, fontweight="bold")
+    ax.set_ylim(0.7, 1.0)
     ax.grid(True, alpha=0.3)
     for c, a in zip(C_values_lr, c_lr_accs):
         ax.annotate(f"{a:.3f}", (c, a), textcoords="offset points", xytext=(0, 8),
@@ -1699,6 +1703,7 @@ def _print_ablation_summary(feat_abl_results, base_feat, benchmark_abl, feature_
 def _run_all_plots(session, all_trials_data):
     """给定完整 session 数据，运行全部可视化+消融。"""
     raw = session["raw"]
+    raw["class_names"] = np.array([str(c).replace("Iris-", "") for c in raw["class_names"]])
     split = session["split"]
     models = session["models"]
     eval_split = session["eval_split"]
