@@ -1454,6 +1454,26 @@ def run_ablation_experiments(X_train, X_test, y_train, y_test, X_train_scaled, X
     _plot_ablation_preproc(preproc_results, preproc_models)
     _print_ablation_summary(feat_abl_results, base_feat, benchmark_abl, feature_names_abl, data_abl_results, width_names, width_accs, depth_names, depth_accs, reg_names, reg_accs, act_names, act_accs, preproc_results, preproc_models)
 
+    return {
+        "feat_abl_results": feat_abl_results,
+        "base_feat": base_feat,
+        "benchmark_abl": benchmark_abl,
+        "feature_names_abl": feature_names_abl,
+        "data_abl_results": data_abl_results,
+        "train_ratios": train_ratios,
+        "colors_abl": colors_abl,
+        "width_names": width_names,
+        "width_accs": width_accs,
+        "depth_names": depth_names,
+        "depth_accs": depth_accs,
+        "reg_names": reg_names,
+        "reg_accs": reg_accs,
+        "act_names": act_names,
+        "act_accs": act_accs,
+        "preproc_results": preproc_results,
+        "preproc_models": preproc_models,
+    }
+
 
 def _plot_ablation_feature(feat_abl_results, base_feat, benchmark_abl, feature_names_abl):
     """消融实验图 1：特征消融热力图。"""
@@ -1745,13 +1765,13 @@ def _aggregate_cm(all_trials_data, model_key):
 
 
 def _run_all_plots(session, all_trials_data):
-    """给定完整 session 数据，运行全部可视化+消融。"""
+    """给定完整 session 数据，运行全部可视化+消融（支持 session 中保存的消融结果）。"""
     raw = session["raw"]
-    raw["class_names"] = np.array([str(c).replace("Iris-", "") for c in raw["class_names"]])
     split = session["split"]
     models = session["models"]
     eval_split = session["eval_split"]
     results = session["results"]
+    abl = session.get("ablation")
 
     print("\n6. 生成可视化图表...")
     plot_data_exploration(raw["X_raw"], raw["y_labels"], raw["class_names"], COLORS_PIE)
@@ -1781,9 +1801,24 @@ def _run_all_plots(session, all_trials_data):
                  models["last_best_mlp"], raw["class_names"], results["cv_results"],
                  all_trials_data=all_trials_data)
     plot_cv_comparison(results["cv_results"])
-    run_ablation_experiments(split["X_tr_last"], split["X_te_last"], split["y_tr_last"], split["y_te_last"],
-                             split["X_tr_s_last"], split["X_te_s_last"], split["scaler_last"])
+
+    # 消融实验：使用 session 中保存的结果（避免重复计算）
+    if abl is not None:
+        _plot_ablation_feature(abl["feat_abl_results"], abl["base_feat"], abl["benchmark_abl"], abl["feature_names_abl"])
+        _plot_ablation_data(abl["data_abl_results"], abl["train_ratios"], abl["benchmark_abl"], abl["colors_abl"])
+        _plot_ablation_mlp_arch(abl["width_names"], abl["width_accs"], abl["depth_names"], abl["depth_accs"],
+                                abl["reg_names"], abl["reg_accs"], abl["act_names"], abl["act_accs"])
+        _plot_ablation_preproc(abl["preproc_results"], abl["preproc_models"])
+        _print_ablation_summary(abl["feat_abl_results"], abl["base_feat"], abl["benchmark_abl"], abl["feature_names_abl"],
+                                abl["data_abl_results"], abl["width_names"], abl["width_accs"],
+                                abl["depth_names"], abl["depth_accs"], abl["reg_names"], abl["reg_accs"],
+                                abl["act_names"], abl["act_accs"], abl["preproc_results"], abl["preproc_models"])
+        print("  消融实验数据已从 session 加载（未重新计算）")
+    else:
+        abl = run_ablation_experiments(split["X_tr_last"], split["X_te_last"], split["y_tr_last"], split["y_te_last"],
+                                       split["X_tr_s_last"], split["X_te_s_last"], split["scaler_last"])
     print("\n完成!")
+    return abl
 
 
 def main():
@@ -1856,8 +1891,13 @@ def main():
     }
     save_experiment(session)
 
-    # 7. 可视化 + 消融
-    _run_all_plots(session, all_trials_data)
+    # 7. 可视化 + 消融（_run_all_plots 内部负责消融的计算/绘图）
+    abl = _run_all_plots(session, all_trials_data)
+    session["ablation"] = abl
+
+    # 用含消融结果的 session 覆盖保存
+    joblib.dump(session, SESSION_PATH)
+    print(f"\n  完整 session（含消融数据）已保存至 {SESSION_PATH}")
 
 
 if __name__ == "__main__":
