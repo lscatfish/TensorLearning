@@ -27,7 +27,8 @@ import matplotlib.pyplot as plt
 import matplotlib.font_manager as fm
 
 from matplotlib.gridspec import GridSpec
-from sklearn.model_selection import train_test_split, cross_val_score, GridSearchCV
+from sklearn.model_selection import train_test_split, cross_val_score, GridSearchCV, StratifiedKFold
+from sklearn.base import clone
 from sklearn.preprocessing import StandardScaler, label_binarize
 from sklearn.metrics import (
     accuracy_score,
@@ -53,6 +54,7 @@ import os
 
 
 # 常量
+N_TRIALS = 10
 FEATURE_NAMES = ["花萼长 (cm)", "花萼宽 (cm)", "花瓣长 (cm)", "花瓣宽 (cm)"]
 COLORS_PIE = ["#FF6B6B", "#4ECDC4", "#45B7D1"]
 
@@ -150,87 +152,113 @@ def define_models():
     return models
 
 
-def train_and_evaluate(models, X_train_scaled, y_train, X_test_scaled, y_test, class_names):
-    """训练所有模型，MLP GridSearch 调优，返回结果。"""
-    print("\n2. 机器学习模型训练与评估")
+def train_and_evaluate(models, X_raw, y_labels, class_names):
+    """N_TRIALS 次试验，返回平均测试准确率、标准差、最后一次的模型等。"""
+    print(f"\n2. 机器学习模型训练与评估 ({N_TRIALS} 次试验)")
 
-    results = {}
-    for name, model in models.items():
-        model.fit(X_train_scaled, y_train)
-        y_pred = model.predict(X_test_scaled)
-        acc = accuracy_score(y_test, y_pred)
-        results[name] = acc
-        print(f"\n  [{name}] 测试准确率: {acc:.4f}")
-        print(f"  {classification_report(y_test, y_pred, target_names=class_names, zero_division=0)}")
+    all_accs = {name: [] for name in models}
+    all_accs["MLP (GridSearch最佳)"] = []
+    all_grid_params = []
+    last_models = {}
 
-    # MLP GridSearch
-    print("\n3. MLP 超参数调优 (GridSearchCV)")
-    param_grid = {
-        "hidden_layer_sizes": [(16, 8), (32, 16, 8), (64, 32), (32, 8)],
-        "alpha": [0.0001, 0.001, 0.01, 0.1],
-        "activation": ["relu", "tanh"],
-    }
-    grid_search = GridSearchCV(
-        MLPClassifier(solver="adam", max_iter=1000, random_state=42),
-        param_grid,
-        cv=5,
-        scoring="accuracy",
-        n_jobs=-1,
-        verbose=0,
-    )
-    grid_search.fit(X_train_scaled, y_train)
+    for trial in range(N_TRIALS):
+        X_tr, X_te, y_tr, y_te = train_test_split(
+            X_raw, y_labels, test_size=0.3, stratify=y_labels
+        )
+        scaler = StandardScaler()
+        X_tr_s = scaler.fit_transform(X_tr)
+        X_te_s = scaler.transform(X_te)
 
-    best_mlp = grid_search.best_estimator_
-    y_pred_best_mlp = best_mlp.predict(X_test_scaled)
-    best_mlp_acc = accuracy_score(y_test, y_pred_best_mlp)
-    results["MLP (GridSearch最佳)"] = best_mlp_acc
+        trial_models = {}
+        for name, model in models.items():
+            m = clone(model)
+            m.fit(X_tr_s, y_tr)
+            acc = accuracy_score(y_te, m.predict(X_te_s))
+            all_accs[name].append(acc)
+            trial_models[name] = m
 
-    print(f"\n  最佳参数: {grid_search.best_params_}")
-    print(f"  最佳交叉验证分数: {grid_search.best_score_:.4f}")
-    print(f"  测试准确率: {best_mlp_acc:.4f}")
-    print(f"  {classification_report(y_test, y_pred_best_mlp, target_names=class_names, zero_division=0)}")
+        param_grid = {
+            "hidden_layer_sizes": [(16, 8), (32, 16, 8), (64, 32), (32, 8)],
+            "alpha": [0.0001, 0.001, 0.01, 0.1],
+            "activation": ["relu", "tanh"],
+        }
+        gs = GridSearchCV(
+            MLPClassifier(solver="adam", max_iter=1000),
+            param_grid, cv=5, scoring="accuracy", n_jobs=-1,
+        )
+        gs.fit(X_tr_s, y_tr)
+        gs_acc = accuracy_score(y_te, gs.best_estimator_.predict(X_te_s))
+        all_accs["MLP (GridSearch最佳)"].append(gs_acc)
+        all_grid_params.append(gs.best_params_)
+        last_models = trial_models
+        last_gs = gs
+        last_best_mlp = gs.best_estimator_
+        last_y_pred_best = gs.best_estimator_.predict(X_te_s)
+        last_X_te = X_te
+        last_y_te = y_te
 
-    return results, y_pred_best_mlp, best_mlp_acc, grid_search, best_mlp
+    results_mean = {n: np.mean(all_accs[n]) for n in all_accs}
+    results_std = {n: np.std(all_accs[n]) for n in all_accs}
+
+    print("\n  各方法测试准确率 (mean ± std):")
+    for name in sorted(results_mean, key=results_mean.get, reverse=True):
+        print(f"    {name:　<18s}  {results_mean[name]:.4f} ± {results_std[name]:.4f}")
+
+    print(f"\n  GridSearch 最常见最优参数: {max(set(tuple(sorted(p.items())) for p in all_grid_params), key=lambda x: all_grid_params.count(dict(x)))}")
+
+    return results_mean, results_std, last_models, last_y_pred_best, accuracy_score(last_y_te, last_y_pred_best), last_gs, last_best_mlp, last_X_te, last_y_te
 
 
-def run_cross_validation(X_train_scaled, y_train, best_mlp):
-    """5折交叉验证对比。"""
-    print("\n4. 5折交叉验证对比")
+def run_cross_validation(X_raw, y_labels):
+    """N_TRIALS 次 5折交叉验证对比，返回平均 CV 均值、标准差。"""
+    print(f"\n4. 5折交叉验证对比 ({N_TRIALS} 次试验)")
+    skf = StratifiedKFold(n_splits=5, shuffle=True)
 
     cv_models = {
-        "逻辑回归": LogisticRegression(multi_class="multinomial", solver="lbfgs", max_iter=1000, random_state=42),
-        "SVM (RBF核)": SVC(kernel="rbf", C=1.0, gamma="scale", random_state=42),
-        "随机森林": RandomForestClassifier(n_estimators=100, max_depth=5, random_state=42),
+        "逻辑回归": LogisticRegression(multi_class="multinomial", solver="lbfgs", max_iter=1000),
+        "SVM (RBF核)": SVC(kernel="rbf", C=1.0, gamma="scale"),
+        "随机森林": RandomForestClassifier(n_estimators=100, max_depth=5),
         "KNN (k=5)": KNeighborsClassifier(n_neighbors=5),
-        "MLP (GridSearch最佳)": best_mlp,
-        "梯度提升树": GradientBoostingClassifier(n_estimators=100, learning_rate=0.1, max_depth=3, random_state=42),
+        "梯度提升树": GradientBoostingClassifier(n_estimators=100, learning_rate=0.1, max_depth=3),
         "高斯朴素贝叶斯": GaussianNB(),
     }
+    all_cv = {name: [] for name in cv_models}
+
+    for trial in range(N_TRIALS):
+        X_tr, X_te, y_tr, y_te = train_test_split(X_raw, y_labels, test_size=0.3, stratify=y_labels)
+        scaler = StandardScaler()
+        X_tr_s = scaler.fit_transform(X_tr)
+        for name, model in cv_models.items():
+            scores = cross_val_score(clone(model), X_tr_s, y_tr, cv=skf, scoring="accuracy")
+            all_cv[name].append((scores.mean(), scores.std()))
+
     cv_results = {}
-    for name, model in cv_models.items():
-        scores = cross_val_score(model, X_train_scaled, y_train, cv=5, scoring="accuracy")
-        cv_results[name] = (scores.mean(), scores.std())
-        print(f"  [{name}] CV准确率: {scores.mean():.4f} ± {scores.std():.4f}")
+    print("  模型               CV mean±std")
+    for name in cv_models:
+        means = [all_cv[name][i][0] for i in range(N_TRIALS)]
+        stds = [all_cv[name][i][1] for i in range(N_TRIALS)]
+        cv_results[name] = (np.mean(means), np.mean(stds))
+        print(f"    {name:　<14s}  {cv_results[name][0]:.4f} ± {cv_results[name][1]:.4f}")
 
     return cv_results
 
 
-def print_summary(results, cv_results):
+def print_summary(results_mean, results_std, cv_results):
     """打印综合对比文字汇总。"""
-    print("\n5. 综合对比与分析")
+    print(f"\n5. 综合对比与分析 ({N_TRIALS} 次试验)")
 
-    print("\n  各方法测试准确率排名:")
-    sorted_results = sorted(results.items(), key=lambda x: x[1], reverse=True)
-    for i, (name, acc) in enumerate(sorted_results, 1):
-        bar = "=" * int(acc * 50)
-        print(f"  {i}. {name:　<16s}  {acc:.4f}  {bar}")
+    print("\n  各方法测试准确率排名 (mean ± std):")
+    sorted_names = sorted(results_mean, key=results_mean.get, reverse=True)
+    for i, name in enumerate(sorted_names, 1):
+        bar = "=" * int(results_mean[name] * 50)
+        print(f"  {i}. {name:　<18s}  {results_mean[name]:.4f} ± {results_std[name]:.4f}  {bar}")
 
     print("\n  算法思考总结")
     print("  MLP vs 传统方法:")
     print("    - MLP 在调优后能达到与传统方法相当的准确率")
     print("    - 小数据下 MLP 容易过拟合, 需配合早停 + L2 正则")
-    print("    - 隐层大小 (16,8) 比 (32,) 略好 — 深度比宽度更优?")
-    print("    - GridSearch 帮助找到最适合 Iris 的架构")
+    print("    - 深度比宽度更优? (小数据下不一定)")
+    print("    - GridSearch 在小数据上可能选出次优参数（见 §3.4）")
     print()
     print("  为什么集成方法表现稳定?")
     print("    - 随机森林和梯度提升树通过集成降低方差/偏差")
@@ -915,8 +943,8 @@ def plot_mlp_training_curves(X_train_scaled, y_train, X_test_scaled, y_test):
     plt.close(fig_mlp_curves)
 
 
-def plot_summary(results, models, y_test, X_test_scaled, y_pred_best_mlp, best_mlp, class_names, cv_results):
-    """12 综合对比：准确率、F1、ROC、所有混淆矩阵汇总。"""
+def plot_summary(results_mean, results_std, last_models, last_X_te, last_y_te, last_y_pred_best, last_best_mlp, class_names, cv_results):
+    """12 综合对比：准确率(含误差)、F1、ROC、所有混淆矩阵汇总。"""
     print("  [12/12] 综合总结图...")
     fig8 = plt.figure(figsize=(14, 28))
     fig8.suptitle("Iris 鸢尾花分类 — 8种方法综合对比", fontsize=18, fontweight="bold")
@@ -924,54 +952,50 @@ def plot_summary(results, models, y_test, X_test_scaled, y_pred_best_mlp, best_m
     gs8 = GridSpec(7, 2, figure=fig8, hspace=0.4, wspace=0.35)
 
     ax = fig8.add_subplot(gs8[0, :])
-    method_names = list(results.keys())
-    method_accs = [results[n] * 100 for n in method_names]
+    method_names = list(results_mean.keys())
+    method_accs = [results_mean[n] * 100 for n in method_names]
+    method_errs = [results_std[n] * 100 for n in method_names]
     colors_top = plt.cm.Set3(np.linspace(0, 1, len(method_names)))
-    bars = ax.barh(method_names, method_accs, color=colors_top, edgecolor="white", height=0.6)
-    ax.set_title("各方法测试准确率对比", fontsize=15, fontweight="bold")
+    bars = ax.barh(method_names, method_accs, xerr=method_errs, color=colors_top,
+                   edgecolor="white", height=0.6, capsize=4)
+    ax.set_title(f"各方法测试准确率对比 ({N_TRIALS} 次试验, mean±std)", fontsize=15, fontweight="bold")
     ax.set_xlabel("准确率 (%)")
     ax.set_xlim(0, 108)
-    for bar, acc in zip(bars, method_accs):
+    for bar, acc, err in zip(bars, method_accs, method_errs):
         ax.text(bar.get_width() + 0.5, bar.get_y() + bar.get_height() / 2,
-                f"{acc:.1f}%", va="center", fontsize=10, fontweight="bold")
+                f"{acc:.1f}±{err:.1f}", va="center", fontsize=9, fontweight="bold")
     ax.grid(True, alpha=0.3, axis="x")
 
     ax = fig8.add_subplot(gs8[1, :])
-    f1_scores = {}
-    for name in results:
-        model = models.get(name, None)
-        if name == "MLP (GridSearch最佳)":
-            pred = y_pred_best_mlp
-        elif model is not None:
-            pred = model.predict(X_test_scaled)
-        else:
-            continue
-        _, _, f1, _ = precision_recall_fscore_support(y_test, pred, zero_division=0)
-        f1_scores[name] = f1
     x = np.arange(3); w = 0.1
-    for idx, (name, f1s) in enumerate(f1_scores.items()):
-        ax.bar(x + idx * w - w * (len(f1_scores) / 2), f1s, w, label=name, alpha=0.85, edgecolor="white")
+    for idx, name in enumerate(method_names):
+        ls = last_models.get(name) if name != "MLP (GridSearch最佳)" else last_best_mlp
+        if ls is not None:
+            pred = ls.predict(last_X_te) if hasattr(ls, 'predict') else last_y_pred_best
+            _, _, f1, _ = precision_recall_fscore_support(last_y_te, pred, zero_division=0)
+            ax.bar(x + idx * w - w * (len(method_names) / 2), f1, w,
+                   label=name, alpha=0.85, edgecolor="white")
     ax.set_xticks(x)
     ax.set_xticklabels(class_names)
     ax.set_ylim(0, 1.15)
-    ax.set_title("各类别 F1-Score 对比", fontsize=13, fontweight="bold")
+    ax.set_title("各类别 F1-Score 对比 (末次试验)", fontsize=13, fontweight="bold")
     ax.legend(fontsize=6, ncol=2)
     ax.grid(True, alpha=0.3, axis="y")
 
     ax = fig8.add_subplot(gs8[2, :])
-    y_test_bin = label_binarize(y_test, classes=[0, 1, 2])
+    y_test_bin = label_binarize(last_y_te, classes=[0, 1, 2])
     roc_models = {
-        "逻辑回归": models["逻辑回归"],
-        "SVM": models["SVM (RBF核)"],
-        "随机森林": models["随机森林"],
-        "KNN": models["KNN (k=5)"],
-        "MLP最佳": best_mlp,
-        "梯度提升树": models["梯度提升树"],
+        "逻辑回归": last_models["逻辑回归"],
+        "SVM": last_models["SVM (RBF核)"],
+        "随机森林": last_models["随机森林"],
+        "KNN": last_models["KNN (k=5)"],
+        "MLP最佳": last_best_mlp,
+        "梯度提升树": last_models["梯度提升树"],
     }
     colors_roc = ["#FF6B6B", "#4ECDC4", "#45B7D1", "#FFA07A", "#98D8C8", "#DDA0DD"]
     for (name, model), color in zip(roc_models.items(), colors_roc):
         if hasattr(model, "predict_proba"):
-            y_score = model.predict_proba(X_test_scaled)
+            y_score = model.predict_proba(last_X_te)
             for i in range(3):
                 fpr, tpr, _ = roc_curve(y_test_bin[:, i], y_score[:, i])
                 roc_auc = auc(fpr, tpr)
@@ -985,35 +1009,36 @@ def plot_summary(results, models, y_test, X_test_scaled, y_pred_best_mlp, best_m
     ax.legend(fontsize=8, ncol=2)
     ax.grid(True, alpha=0.3)
 
-    cm_list = []
-    for name in ["逻辑回归", "SVM (RBF核)", "随机森林", "KNN (k=5)"]:
-        cm_list.append((name, confusion_matrix(y_test, models[name].predict(X_test_scaled))))
-    cm_list.append(("MLP最佳", confusion_matrix(y_test, y_pred_best_mlp)))
-    cm_list.append(("梯度提升树", confusion_matrix(y_test, models["梯度提升树"].predict(X_test_scaled))))
-    cm_list.append(("决策树", confusion_matrix(y_test, models["决策树"].predict(X_test_scaled))))
-    cm_list.append(("朴素贝叶斯", confusion_matrix(y_test, models["高斯朴素贝叶斯"].predict(X_test_scaled))))
-
-    for idx, (name, cm) in enumerate(cm_list):
+    cm_list = [
+        ("逻辑回归", last_models["逻辑回归"].predict(last_X_te)),
+        ("SVM", last_models["SVM (RBF核)"].predict(last_X_te)),
+        ("随机森林", last_models["随机森林"].predict(last_X_te)),
+        ("KNN", last_models["KNN (k=5)"].predict(last_X_te)),
+        ("MLP最佳", last_y_pred_best),
+        ("梯度提升树", last_models["梯度提升树"].predict(last_X_te)),
+        ("决策树", last_models["决策树"].predict(last_X_te)),
+        ("朴素贝叶斯", last_models["高斯朴素贝叶斯"].predict(last_X_te)),
+    ]
+    for idx, (name, pred) in enumerate(cm_list):
         row = 3 + idx // 2
         col = idx % 2
         ax = fig8.add_subplot(gs8[row, col])
-        plt.rcParams["axes.unicode_minus"] = False
+        cm = confusion_matrix(last_y_te, pred)
         ConfusionMatrixDisplay(cm, display_labels=class_names).plot(
             ax=ax, cmap="Blues", colorbar=False, text_kw={"fontsize": 11},
             im_kw={"vmin": 0, "vmax": 15})
-        ax.set_title(name, fontsize=12, fontweight="bold")
+        ax.set_title(f"{name} (末次)", fontsize=12, fontweight="bold")
 
     fig8.tight_layout()
-    plt.rcParams["axes.unicode_minus"] = False
     fig8.savefig("iris/output/12_summary.svg", bbox_inches="tight")
     plt.close(fig8)
 
 
 def plot_cv_comparison(cv_results):
-    """13 交叉验证对比：各模型 5 折 CV 结果。"""
+    """13 交叉验证对比：各模型 5 折 CV 结果（跨多次试验）。"""
     print("  [补充] 交叉验证对比...")
     fig_cv = plt.figure(figsize=(12, 8))
-    fig_cv.suptitle("各模型 5 折交叉验证对比", fontsize=16, fontweight="bold")
+    fig_cv.suptitle(f"各模型 5 折交叉验证对比 ({N_TRIALS} 次试验)", fontsize=16, fontweight="bold")
 
     ax = fig_cv.add_subplot(1, 1, 1)
     cv_names = list(cv_results.keys())
@@ -1045,8 +1070,8 @@ def plot_cv_comparison(cv_results):
     print("    09_naive_bayes.svg         — 朴素贝叶斯分析")
     print("    10_knn.svg                 — KNN分析")
     print("    11_mlp_training_curves.svg — MLP不同架构训练曲线")
-    print("    12_summary.svg             — 综合对比总结")
-    print("    13_cv_comparison.svg       — 交叉验证对比")
+    print("    12_summary.svg             — 综合对比总结(含误差)")
+    print("    13_cv_comparison.svg       — 交叉验证对比(跨次试验)")
 
 
 # 消融实验相关函数
@@ -1525,45 +1550,51 @@ def _print_ablation_summary(feat_abl_results, base_feat, benchmark_abl, feature_
 # main 入口
 
 def main():
-    """主流程：数据加载 → 训练 → 可视化 → 消融实验。"""
+    """主流程：数据加载 → 多轮训练 → 可视化 → 消融实验。"""
     os.makedirs("iris/output", exist_ok=True)
 
-    # 1. 数据加载与预处理
-    (X_raw, y_raw, X_train, X_test, y_train, y_test,
-     X_train_scaled, X_test_scaled, scaler,
-     class_names, y_labels) = load_and_preprocess_data()
+    # 1. 数据加载与预处理（只用原始数据，多轮试验内部自行划分）
+    X_raw, y_raw, _, _, _, _, _, _, _, class_names, y_labels = load_and_preprocess_data()
 
-    # 2. 模型定义与训练
+    # 2. 模型定义与多轮训练
     models = define_models()
-    results, y_pred_best_mlp, best_mlp_acc, grid_search, best_mlp = train_and_evaluate(
-        models, X_train_scaled, y_train, X_test_scaled, y_test, class_names
+    results_mean, results_std, last_models, last_y_pred_best, best_mlp_acc, last_gs, last_best_mlp, last_X_te, last_y_te = train_and_evaluate(
+        models, X_raw, y_labels, class_names
     )
 
-    # 3. 交叉验证
-    cv_results = run_cross_validation(X_train_scaled, y_train, best_mlp)
+    # 3. 多轮交叉验证
+    cv_results = run_cross_validation(X_raw, y_labels)
 
     # 4. 文字汇总
-    print_summary(results, cv_results)
+    print_summary(results_mean, results_std, cv_results)
 
-    # 5. 可视化
+    # 5. 可视化（使用最后一轮试验的数据和模型）
     print("\n6. 生成可视化图表...")
+    # 用最后一轮的数据做单次可视化
+    X_tr_last, X_te_last, y_tr_last, y_te_last = train_test_split(
+        X_raw, y_labels, test_size=0.3, stratify=y_labels
+    )
+    scaler_last = StandardScaler()
+    X_tr_s_last = scaler_last.fit_transform(X_tr_last)
+    X_te_s_last = scaler_last.transform(X_te_last)
+
     plot_data_exploration(X_raw, y_labels, class_names, COLORS_PIE)
-    plot_decision_boundaries(X_train, y_train, X_test, y_test, X_train_scaled, X_test_scaled, class_names)
-    plot_svm_analysis(X_train_scaled, y_train, X_test_scaled, y_test, models, class_names)
-    plot_logistic_regression(X_train_scaled, y_train, X_test_scaled, y_test, models, class_names, FEATURE_NAMES)
-    plot_mlp_analysis(results, y_pred_best_mlp, best_mlp_acc, grid_search,
-                      X_train_scaled, y_train, X_test_scaled, y_test, class_names, FEATURE_NAMES)
-    plot_random_forest(X_train_scaled, y_train, X_test_scaled, y_test, models, class_names, FEATURE_NAMES)
-    plot_gradient_boosting(X_train_scaled, y_train, X_test_scaled, y_test, models, class_names, FEATURE_NAMES)
-    plot_decision_tree(X_train_scaled, y_train, X_test_scaled, y_test, models, class_names, FEATURE_NAMES)
-    plot_naive_bayes(X_test_scaled, y_test, models, class_names, FEATURE_NAMES, COLORS_PIE)
-    plot_knn(X_train_scaled, y_train, X_test_scaled, y_test, models, class_names, results)
-    plot_mlp_training_curves(X_train_scaled, y_train, X_test_scaled, y_test)
-    plot_summary(results, models, y_test, X_test_scaled, y_pred_best_mlp, best_mlp, class_names, cv_results)
+    plot_decision_boundaries(X_tr_last, y_tr_last, X_te_last, y_te_last, X_tr_s_last, X_te_s_last, class_names)
+    plot_svm_analysis(X_tr_s_last, y_tr_last, X_te_s_last, y_te_last, last_models, class_names)
+    plot_logistic_regression(X_tr_s_last, y_tr_last, X_te_s_last, y_te_last, last_models, class_names, FEATURE_NAMES)
+    plot_mlp_analysis(results_mean, last_y_pred_best, best_mlp_acc, last_gs,
+                      X_tr_s_last, y_tr_last, X_te_s_last, y_te_last, class_names, FEATURE_NAMES)
+    plot_random_forest(X_tr_s_last, y_tr_last, X_te_s_last, y_te_last, last_models, class_names, FEATURE_NAMES)
+    plot_gradient_boosting(X_tr_s_last, y_tr_last, X_te_s_last, y_te_last, last_models, class_names, FEATURE_NAMES)
+    plot_decision_tree(X_tr_s_last, y_tr_last, X_te_s_last, y_te_last, last_models, class_names, FEATURE_NAMES)
+    plot_naive_bayes(X_te_s_last, y_te_last, last_models, class_names, FEATURE_NAMES, COLORS_PIE)
+    plot_knn(X_tr_s_last, y_tr_last, X_te_s_last, y_te_last, last_models, class_names, results_mean)
+    plot_mlp_training_curves(X_tr_s_last, y_tr_last, X_te_s_last, y_te_last)
+    plot_summary(results_mean, results_std, last_models, last_X_te, last_y_te, last_y_pred_best, last_best_mlp, class_names, cv_results)
     plot_cv_comparison(cv_results)
 
     # 6. 消融实验
-    run_ablation_experiments(X_train, X_test, y_train, y_test, X_train_scaled, X_test_scaled, scaler)
+    run_ablation_experiments(X_tr_last, X_te_last, y_tr_last, y_te_last, X_tr_s_last, X_te_s_last, scaler_last)
 
     print("\n完成!")
 
