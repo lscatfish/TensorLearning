@@ -184,7 +184,7 @@ def train_and_evaluate(models, X_raw, y_labels, class_names):
         }
         gs = GridSearchCV(
             MLPClassifier(solver="adam", max_iter=1000),
-            param_grid, cv=5, scoring="accuracy", n_jobs=-1,
+            param_grid, cv=5, scoring="accuracy", n_jobs=1,
         )
         gs.fit(X_tr_s, y_tr)
         gs_acc = accuracy_score(y_te, gs.best_estimator_.predict(X_te_s))
