@@ -147,8 +147,8 @@ def set_run_font(run, cn_font=CHINESE_FONT, en_font=WESTERN_FONT, size=None, bol
     run.font.name = en_font
     rFonts = run._element.rPr.rFonts
     rFonts.set(qn('w:eastAsia'), cn_font)
-    # Chinese punctuation (e.g. “” ‘’) uses hAnsi font; set it to Chinese font
-    rFonts.set(qn('w:hAnsi'), cn_font)
+    rFonts.set(qn('w:hAnsi'), en_font)
+    rFonts.set(qn('w:cs'), en_font)
     if size:
         run.font.size = size
     run.font.bold = bold
@@ -264,6 +264,8 @@ def convert_md_to_docx(md_path, docx_path):
     style = doc.styles['Normal']
     style.font.name = WESTERN_FONT
     style._element.rPr.rFonts.set(qn('w:eastAsia'), CHINESE_FONT)
+    style._element.rPr.rFonts.set(qn('w:hAnsi'), WESTERN_FONT)
+    style._element.rPr.rFonts.set(qn('w:cs'), WESTERN_FONT)
     style.font.size = BODY_SIZE
     style.font.color.rgb = COLOR_BLACK
 
