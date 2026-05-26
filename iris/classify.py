@@ -56,6 +56,7 @@ from sklearn.naive_bayes import GaussianNB
 from sklearn.decomposition import PCA
 import os
 import json
+import joblib
 
 
 # 常量
@@ -321,6 +322,29 @@ def load_experiment_json(path=None):
         data = json.load(f)
     print(f"  已加载 {data['meta']['n_trials']} 次试验数据 ({path})")
     return data
+
+
+SESSION_PATH = "iris/output/experiment/session.joblib"
+
+
+def save_experiment(session):
+    """保存完整实验 session（模型、scaler、split、结果）到 joblib + JSON（trial 数据）。"""
+    os.makedirs(os.path.dirname(SESSION_PATH), exist_ok=True)
+    joblib.dump(session, SESSION_PATH)
+    print(f"\n  实验 session 已保存至 {SESSION_PATH}  ({os.path.getsize(SESSION_PATH)/1024:.0f} KB)")
+
+
+def load_experiment():
+    """从 joblib 加载完整实验 session，从 JSON 加载 trial 数据。"""
+    if not os.path.exists(SESSION_PATH):
+        print(f"  Session 文件不存在: {SESSION_PATH}")
+        return None, None
+    session = joblib.load(SESSION_PATH)
+    print(f"  已加载 session ({SESSION_PATH})")
+    json_data = load_experiment_json()
+    if json_data is None:
+        print("  警告: JSON 未找到，summary 图将无 trial 聚合数据")
+    return session, json_data
 
 
 def print_summary(results_mean, results_std, cv_results):
@@ -1672,32 +1696,67 @@ def _print_ablation_summary(feat_abl_results, base_feat, benchmark_abl, feature_
 
 # main 入口
 
+def _run_all_plots(session, all_trials_data):
+    """给定完整 session 数据，运行全部可视化+消融。"""
+    raw = session["raw"]
+    split = session["split"]
+    models = session["models"]
+    eval_split = session["eval_split"]
+    results = session["results"]
+
+    print("\n6. 生成可视化图表...")
+    plot_data_exploration(raw["X_raw"], raw["y_labels"], raw["class_names"], COLORS_PIE)
+    plot_decision_boundaries(split["X_tr_last"], split["y_tr_last"], split["X_te_last"], split["y_te_last"],
+                             split["X_tr_s_last"], split["X_te_s_last"], raw["class_names"])
+    plot_svm_analysis(split["X_tr_s_last"], split["y_tr_last"], split["X_te_s_last"], split["y_te_last"],
+                      models["last_models"], raw["class_names"])
+    plot_logistic_regression(split["X_tr_s_last"], split["y_tr_last"], split["X_te_s_last"], split["y_te_last"],
+                             models["last_models"], raw["class_names"], FEATURE_NAMES)
+    plot_mlp_analysis(results["results_mean"], eval_split["last_y_pred_best"], eval_split["best_mlp_acc"],
+                      models["last_gs"], split["X_tr_s_last"], split["y_tr_last"],
+                      split["X_te_s_last"], split["y_te_last"], raw["class_names"], FEATURE_NAMES)
+    plot_random_forest(split["X_tr_s_last"], split["y_tr_last"], split["X_te_s_last"], split["y_te_last"],
+                       models["last_models"], raw["class_names"], FEATURE_NAMES)
+    plot_gradient_boosting(split["X_tr_s_last"], split["y_tr_last"], split["X_te_s_last"], split["y_te_last"],
+                           models["last_models"], raw["class_names"], FEATURE_NAMES)
+    plot_decision_tree(split["X_tr_s_last"], split["y_tr_last"], split["X_te_s_last"], split["y_te_last"],
+                       models["last_models"], raw["class_names"], FEATURE_NAMES)
+    plot_naive_bayes(split["X_te_s_last"], split["y_te_last"], models["last_models"],
+                     raw["class_names"], FEATURE_NAMES, COLORS_PIE)
+    plot_knn(split["X_tr_s_last"], split["y_tr_last"], split["X_te_s_last"], split["y_te_last"],
+             models["last_models"], raw["class_names"], results["results_mean"])
+    plot_mlp_training_curves(split["X_tr_s_last"], split["y_tr_last"], split["X_te_s_last"], split["y_te_last"])
+    plot_summary(results["results_mean"], results["results_std"], models["last_models"],
+                 eval_split["last_X_te"], eval_split["last_y_te"], eval_split["last_y_pred_best"],
+                 models["last_best_mlp"], raw["class_names"], results["cv_results"],
+                 all_trials_data=all_trials_data)
+    plot_cv_comparison(results["cv_results"])
+    run_ablation_experiments(split["X_tr_last"], split["X_te_last"], split["y_tr_last"], split["y_te_last"],
+                             split["X_tr_s_last"], split["X_te_s_last"], split["scaler_last"])
+    print("\n完成!")
+
+
 def main():
-    """主流程：数据加载 → 多轮训练 → 可视化 → 消融实验。"""
+    """主流程：训练（默认）或仅分析（--analyze）。"""
     import argparse
     parser = argparse.ArgumentParser()
-    parser.add_argument("--from-json", action="store_true",
-                        help="从 JSON 加载已有试验数据重绘 summary 图（跳过训练）")
+    parser.add_argument("--analyze", action="store_true",
+                        help="从已保存 session 加载模型和数据，重绘全部图表（跳过训练）")
     args = parser.parse_args()
 
     os.makedirs("iris/output", exist_ok=True)
 
-    # 1. 数据加载与预处理（只用原始数据，多轮试验内部自行划分）
-    X_raw, y_raw, _, _, _, _, _, _, _, class_names, y_labels = load_and_preprocess_data()
-
-    if args.from_json:
-        data = load_experiment_json()
-        if data is None:
+    if args.analyze:
+        session, json_data = load_experiment()
+        if session is None:
+            print("  请先不加 --analyze 完整运行一次以生成 session 数据。")
             return
-        results_mean = data["results_mean"]
-        results_std = data["results_std"]
-        cv_results = None
-        class_names = data["meta"]["class_names"]
-        print("  --from-json 模式: 仅重绘 summary 图")
-        print("  (如需全部图表, 请不加 --from-json 完整运行)")
-        plot_summary(results_mean, results_std, {}, None, None, None, None, class_names, None, all_trials_data=data)
-        print("\n完成!")
+        print("  --analyze 模式: 从 session 加载模型和数据，重绘全部图表")
+        _run_all_plots(session, json_data)
         return
+
+    # 1. 数据加载与预处理
+    X_raw, y_raw, _, _, _, _, _, _, _, class_names, y_labels = load_and_preprocess_data()
 
     # 2. 模型定义与多轮训练
     models = define_models()
@@ -1711,9 +1770,7 @@ def main():
     # 4. 文字汇总
     print_summary(results_mean, results_std, cv_results)
 
-    # 5. 可视化（使用最后一轮试验的数据和模型）
-    print("\n6. 生成可视化图表...")
-    # 用最后一轮的数据做单次可视化
+    # 5. 准备末次 trial 的可视化数据（与 train_and_evaluate 内部的末次 split 无关，独立生成）
     X_tr_last, X_te_last, y_tr_last, y_te_last = train_test_split(
         X_raw, y_labels, test_size=0.3, stratify=y_labels
     )
@@ -1721,25 +1778,36 @@ def main():
     X_tr_s_last = scaler_last.fit_transform(X_tr_last)
     X_te_s_last = scaler_last.transform(X_te_last)
 
-    plot_data_exploration(X_raw, y_labels, class_names, COLORS_PIE)
-    plot_decision_boundaries(X_tr_last, y_tr_last, X_te_last, y_te_last, X_tr_s_last, X_te_s_last, class_names)
-    plot_svm_analysis(X_tr_s_last, y_tr_last, X_te_s_last, y_te_last, last_models, class_names)
-    plot_logistic_regression(X_tr_s_last, y_tr_last, X_te_s_last, y_te_last, last_models, class_names, FEATURE_NAMES)
-    plot_mlp_analysis(results_mean, last_y_pred_best, best_mlp_acc, last_gs,
-                      X_tr_s_last, y_tr_last, X_te_s_last, y_te_last, class_names, FEATURE_NAMES)
-    plot_random_forest(X_tr_s_last, y_tr_last, X_te_s_last, y_te_last, last_models, class_names, FEATURE_NAMES)
-    plot_gradient_boosting(X_tr_s_last, y_tr_last, X_te_s_last, y_te_last, last_models, class_names, FEATURE_NAMES)
-    plot_decision_tree(X_tr_s_last, y_tr_last, X_te_s_last, y_te_last, last_models, class_names, FEATURE_NAMES)
-    plot_naive_bayes(X_te_s_last, y_te_last, last_models, class_names, FEATURE_NAMES, COLORS_PIE)
-    plot_knn(X_tr_s_last, y_tr_last, X_te_s_last, y_te_last, last_models, class_names, results_mean)
-    plot_mlp_training_curves(X_tr_s_last, y_tr_last, X_te_s_last, y_te_last)
-    plot_summary(results_mean, results_std, last_models, last_X_te, last_y_te, last_y_pred_best, last_best_mlp, class_names, cv_results, all_trials_data=all_trials_data)
-    plot_cv_comparison(cv_results)
+    # 6. 保存完整 session
+    session = {
+        "raw": {"X_raw": X_raw, "y_labels": y_labels, "class_names": class_names},
+        "split": {
+            "X_tr_last": X_tr_last, "y_tr_last": y_tr_last,
+            "X_te_last": X_te_last, "y_te_last": y_te_last,
+            "X_tr_s_last": X_tr_s_last, "X_te_s_last": X_te_s_last,
+            "scaler_last": scaler_last,
+        },
+        "models": {
+            "last_models": last_models,
+            "last_best_mlp": last_best_mlp,
+            "last_gs": last_gs,
+        },
+        "eval_split": {
+            "last_X_te": last_X_te,
+            "last_y_te": last_y_te,
+            "last_y_pred_best": last_y_pred_best,
+            "best_mlp_acc": best_mlp_acc,
+        },
+        "results": {
+            "results_mean": results_mean,
+            "results_std": results_std,
+            "cv_results": cv_results,
+        },
+    }
+    save_experiment(session)
 
-    # 6. 消融实验
-    run_ablation_experiments(X_tr_last, X_te_last, y_tr_last, y_te_last, X_tr_s_last, X_te_s_last, scaler_last)
-
-    print("\n完成!")
+    # 7. 可视化 + 消融
+    _run_all_plots(session, all_trials_data)
 
 
 if __name__ == "__main__":
