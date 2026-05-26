@@ -1091,13 +1091,12 @@ def plot_summary(results_mean, results_std, last_models, last_X_te, last_y_te, l
     如果 all_trials_data 不为 None，F1/CM/ROC 使用全部 trial 聚合数据而非末次。
     """
     print("  [12/12] 综合总结图...")
-    fig8 = plt.figure(figsize=(14, 28))
-    fig8.suptitle("Iris 鸢尾花分类 — 8种方法综合对比", fontsize=18, fontweight="bold", y=0.97)
+    # 图1：上三个子图（准确率、F1、ROC）
+    fig_top = plt.figure(figsize=(14, 12))
+    fig_top.suptitle("Iris 鸢尾花分类 — 综合对比", fontsize=18, fontweight="bold", y=0.98)
+    gs_top = GridSpec(3, 1, figure=fig_top, hspace=0.35, wspace=0.35, top=0.93)
 
-    gs8 = GridSpec(7, 2, figure=fig8, hspace=0.3, wspace=0.35,
-                   top=0.93, bottom=0.03)
-
-    ax = fig8.add_subplot(gs8[0, :])
+    ax = fig_top.add_subplot(gs_top[0, 0])
     method_names = list(results_mean.keys())
     method_accs = [results_mean[n] * 100 for n in method_names]
     method_errs = [results_std[n] * 100 for n in method_names]
@@ -1113,7 +1112,7 @@ def plot_summary(results_mean, results_std, last_models, last_X_te, last_y_te, l
     ax.grid(True, alpha=0.3, axis="x")
 
     # F1 — 多 trial 平均
-    ax = fig8.add_subplot(gs8[1, :])
+    ax = fig_top.add_subplot(gs_top[1, 0])
     x = np.arange(3); w = 0.1
     for idx, name in enumerate(method_names):
         if all_trials_data is not None:
@@ -1135,7 +1134,7 @@ def plot_summary(results_mean, results_std, last_models, last_X_te, last_y_te, l
     ax.grid(True, alpha=0.3, axis="y")
 
     # ROC — 多 trial 拼接
-    ax = fig8.add_subplot(gs8[2, :])
+    ax = fig_top.add_subplot(gs_top[2, 0])
     roc_entries = [
         ("逻辑回归", "逻辑回归"),
         ("SVM", "SVM (RBF核)"),
@@ -1176,7 +1175,15 @@ def plot_summary(results_mean, results_std, last_models, last_X_te, last_y_te, l
     ax.legend(fontsize=8, ncol=2)
     ax.grid(True, alpha=0.3)
 
-    # 混淆矩阵 — 多 trial 拼接（标签去掉 Iris- 前缀避免密集）
+    plt.rcParams["axes.unicode_minus"] = False
+    fig_top.savefig("iris/output/12_summary.svg", bbox_inches="tight")
+    plt.close(fig_top)
+
+    # 图2：混淆矩阵汇总
+    fig_cm = plt.figure(figsize=(14, 20))
+    fig_cm.suptitle("Iris 鸢尾花分类 — 混淆矩阵汇总", fontsize=18, fontweight="bold", y=0.98)
+    gs_cm = GridSpec(4, 2, figure=fig_cm, hspace=0.35, wspace=0.35, top=0.93)
+
     cm_labels = [n.replace("Iris-", "") for n in class_names]
     cm_entries = [
         ("逻辑回归", "逻辑回归"),
@@ -1189,9 +1196,9 @@ def plot_summary(results_mean, results_std, last_models, last_X_te, last_y_te, l
         ("朴素贝叶斯", "高斯朴素贝叶斯"),
     ]
     for idx, (disp_name, key) in enumerate(cm_entries):
-        row = 3 + idx // 2
+        row = idx // 2
         col = idx % 2
-        ax = fig8.add_subplot(gs8[row, col])
+        ax = fig_cm.add_subplot(gs_cm[row, col])
         if all_trials_data is not None:
             all_preds, all_true = [], []
             for t in all_trials_data["trials"]:
@@ -1207,8 +1214,8 @@ def plot_summary(results_mean, results_std, last_models, last_X_te, last_y_te, l
             ax=ax, cmap="Blues", colorbar=False, text_kw={"fontsize": 11})
         ax.set_title(f"{disp_name} ({N_TRIALS}次合并)", fontsize=12, fontweight="bold")
 
-    fig8.savefig("iris/output/12_summary.svg", bbox_inches="tight")
-    plt.close(fig8)
+    fig_cm.savefig("iris/output/13_confusion_matrices.svg", bbox_inches="tight")
+    plt.close(fig_cm)
 
 
 def plot_cv_comparison(cv_results):
@@ -1232,7 +1239,7 @@ def plot_cv_comparison(cv_results):
                 f"{mean:.1f}%±{std:.1f}%", va="center", fontsize=9)
     ax.grid(True, alpha=0.3, axis="x")
 
-    fig_cv.savefig("iris/output/13_cv_comparison.svg", bbox_inches="tight")
+    fig_cv.savefig("iris/output/14_cv_comparison.svg", bbox_inches="tight")
     plt.close(fig_cv)
 
     print("  图表已保存至 iris/output/ 目录 (SVG 格式):")
@@ -1247,8 +1254,9 @@ def plot_cv_comparison(cv_results):
     print("    09_naive_bayes.svg         — 朴素贝叶斯分析")
     print("    10_knn.svg                 — KNN分析")
     print("    11_mlp_training_curves.svg — MLP不同架构训练曲线")
-    print("    12_summary.svg             — 综合对比总结(含误差)")
-    print("    13_cv_comparison.svg       — 交叉验证对比(跨次试验)")
+    print("    12_summary.svg             — 综合对比总结(准确率/F1/ROC)")
+    print("    13_confusion_matrices.svg  — 混淆矩阵汇总(8方法)")
+    print("    14_cv_comparison.svg       — 交叉验证对比(跨次试验)")
 
 
 # 消融实验相关函数
