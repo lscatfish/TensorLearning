@@ -133,8 +133,12 @@ def replace_math_in_docx(docx_path):
 
 # ========================= 工具函数 =========================
 def remove_spaces_between_languages(text):
-    text = re.sub(r'([\u4e00-\u9fff])\s+([a-zA-Z0-9])', r'\1\2', text)
-    text = re.sub(r'([a-zA-Z0-9])\s+([\u4e00-\u9fff])', r'\1\2', text)
+    if not text:
+        return text
+    text = re.sub(r'([\u4e00-\u9fff\u3000-\u303f\uff00-\uffef])\s+([\w%+\-<>=^*/()\[\]{}])', r'\1\2', text)
+    text = re.sub(r'([\w%+\-<>=^*/()\[\]{}])\s+([\u4e00-\u9fff\u3000-\u303f\uff00-\uffef])', r'\1\2', text)
+    text = re.sub(r'\s{2,}', ' ', text)
+    text = text.strip()
     return text
 
 
