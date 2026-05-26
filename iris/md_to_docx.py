@@ -194,7 +194,7 @@ def process_inline_elements(paragraph, node, size=None, bold=False, italic=False
             text = remove_spaces_between_languages(child.get_text())
             if text:
                 run = paragraph.add_run(text)
-                set_run_font(run, en_font='Courier New', cn_font='Courier New', size=size, bold=bold, italic=italic)
+                set_run_font(run, size=size, bold=bold, italic=italic)
         elif child.name == 'br':
             paragraph.add_run().add_break()
         elif child.name == 'a':
