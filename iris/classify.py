@@ -682,10 +682,11 @@ def plot_mlp_analysis(results, y_pred_best_mlp, best_mlp_acc, grid_search,
     ax.set_xticklabels(arch_names, rotation=15)
     ax.set_ylabel("测试准确率 (%)")
     ax.set_title("不同 MLP 架构对比", fontsize=13, fontweight="bold")
-    ax.set_ylim(80, 105)
+    ax.set_ylim(90, 100)
+    ax.margins(x=0.15)
     for i, acc in enumerate(arch_accs):
         ax.annotate(f"{acc:.2%}", (i, acc * 100), textcoords="offset points",
-                    xytext=(0, 8), ha="center", fontsize=10, fontweight="bold")
+                    xytext=(0, -12), ha="center", fontsize=10, fontweight="bold")
     ax.grid(True, alpha=0.3)
 
     ax = fig4.add_subplot(2, 3, 2)
@@ -729,6 +730,7 @@ def plot_mlp_analysis(results, y_pred_best_mlp, best_mlp_acc, grid_search,
     ax.set_ylabel("CV 准确率")
     ax.set_title("GridSearch: 不同架构随 alpha 变化", fontsize=13, fontweight="bold")
     ax.legend(fontsize=8, title="架构")
+    ax.set_ylim(score_matrix.min() - 0.003, score_matrix.max() + 0.003)
     ax.grid(True, alpha=0.3)
     for i in range(score_matrix.shape[0]):
         for j in range(score_matrix.shape[1]):
@@ -772,14 +774,16 @@ def plot_mlp_analysis(results, y_pred_best_mlp, best_mlp_acc, grid_search,
     ax.set_xticks(range(len(activations)))
     ax.set_xticklabels(activations)
     ax.set_ylabel("测试准确率 (%)")
-    ax.set_ylim(80, 105)
+    ax.set_ylim(90, 100)
+    ax.margins(x=0.15)
     ax.set_title("激活函数对比", fontsize=13, fontweight="bold")
     for i, s in enumerate(act_scores):
         ax.annotate(f"{s:.2%}", (i, s * 100), textcoords="offset points",
-                    xytext=(0, 8), ha="center", fontsize=11, fontweight="bold")
+                    xytext=(0, -12), ha="center", fontsize=11, fontweight="bold")
     ax.grid(True, alpha=0.3)
 
     plt.rcParams["axes.unicode_minus"] = False
+    fig4.tight_layout()
     fig4.savefig("iris/output/05_mlp_analysis.svg", bbox_inches="tight")
     plt.close(fig4)
 
@@ -788,6 +792,7 @@ def plot_random_forest(X_train_scaled, y_train, X_test_scaled, y_test, models, c
     """06 随机森林分析：特征重要性、估计器数量、混淆矩阵、深度扫描。"""
     print("  [6/12] 随机森林分析...")
     fig5 = plt.figure(figsize=(16, 10))
+    fig5.subplots_adjust(hspace=0.3)
     fig5.suptitle("随机森林 — 详细分析", fontsize=16, fontweight="bold")
 
     ax = fig5.add_subplot(2, 2, 1)
