@@ -1,12 +1,19 @@
 # -*- coding: utf-8 -*-
 import re
+import os
+import tempfile
+import zipfile
+from copy import deepcopy
+
 import markdown
 from bs4 import BeautifulSoup, NavigableString
 from docx import Document
-from docx.shared import Pt, Cm, RGBColor, Inches
+from docx.shared import Pt, Cm, RGBColor
 from docx.enum.text import WD_ALIGN_PARAGRAPH, WD_LINE_SPACING
 from docx.oxml.ns import qn
 from docx.enum.table import WD_TABLE_ALIGNMENT
+from lxml import etree
+import pypandoc
 
 # ========================= 配置 =========================
 CHINESE_FONT = '宋体'
@@ -24,7 +31,107 @@ BODY_SIZE = Pt(12)
 QUOTE_SIZE = Pt(10.5)
 FIRST_LINE_INDENT = Cm(0.85)
 
+MATH_PLACEHOLDER_RE = re.compile(r'\{\{MATH:(\d+)\}\}')
 
+# 全局公式存储
+formulas = []   # (is_display, latex)
+omml_cache = {}  # idx -> lxml Element
+
+
+# ========================= 公式处理 =========================
+def extract_formulas(md_text):
+    """提取块级和行内公式，替换为占位符"""
+    def repl_display(m):
+        idx = len(formulas)
+        formulas.append((True, m.group(1).strip()))
+        return f'\n\n{{{{MATH:{idx}}}}}\n\n'
+
+    text = re.sub(r'\$\$\s*(.*?)\s*\$\$', repl_display, md_text, flags=re.DOTALL)
+
+    def repl_inline(m):
+        idx = len(formulas)
+        formulas.append((False, m.group(1).strip()))
+        return f'{{{{MATH:{idx}}}}}'
+
+    text = re.sub(r'(?<!\$)\$(?!\$)([^\$\n]+?)\$(?!\$)', repl_inline, text)
+    return text
+
+
+def get_omml(idx):
+    if idx in omml_cache:
+        return omml_cache[idx]
+
+    is_display, latex = formulas[idx]
+
+    with tempfile.NamedTemporaryFile(mode='w', suffix='.md', delete=False, encoding='utf-8', dir='.') as f:
+        if is_display:
+            f.write(f'$${latex}$$\n')
+        else:
+            f.write(f'${latex}$\n')
+        temp_md = f.name
+
+    temp_docx = temp_md.replace('.md', '.docx')
+    pypandoc.convert_file(temp_md, 'docx', outputfile=temp_docx)
+
+    doc = Document(temp_docx)
+    ns = {'m': 'http://schemas.openxmlformats.org/officeDocument/2006/math'}
+
+    result = None
+    for p in doc.paragraphs:
+        p_xml = p._p
+        omath_para = p_xml.find('.//m:oMathPara', namespaces=ns)
+        if omath_para is not None:
+            result = deepcopy(omath_para)
+            break
+        omath = p_xml.find('.//m:oMath', namespaces=ns)
+        if omath is not None:
+            result = deepcopy(omath)
+            break
+
+    os.remove(temp_md)
+    os.remove(temp_docx)
+
+    omml_cache[idx] = result
+    return result
+
+
+def replace_math_in_docx(docx_path):
+    """在 docx 的 XML 中替换占位符为 OMML"""
+    W_NS = 'http://schemas.openxmlformats.org/wordprocessingml/2006/main'
+
+    # 读取整个 zip 到内存
+    with zipfile.ZipFile(docx_path, 'r') as zin:
+        items = []
+        for item in zin.infolist():
+            data = zin.read(item.filename)
+            if item.filename == 'word/document.xml':
+                root = etree.fromstring(data)
+
+                for p in root.iter(f'{{{W_NS}}}p'):
+                    runs = list(p.iter(f'{{{W_NS}}}r'))
+                    for r in runs:
+                        t_elems = list(r.iter(f'{{{W_NS}}}t'))
+                        for t in t_elems:
+                            text = t.text or ''
+                            m = re.match(r'^\{\{MATH:(\d+)\}\}$', text)
+                            if m:
+                                idx = int(m.group(1))
+                                omath = omml_cache.get(idx)
+                                if omath is not None:
+                                    r.addprevious(deepcopy(omath))
+                                    p.remove(r)
+                                break
+
+                data = etree.tostring(root, xml_declaration=True, encoding='UTF-8', standalone=True)
+            items.append((item, data))
+
+    # 写回原文件
+    with zipfile.ZipFile(docx_path, 'w', zipfile.ZIP_DEFLATED) as zout:
+        for item, data in items:
+            zout.writestr(item, data)
+
+
+# ========================= 工具函数 =========================
 def remove_spaces_between_languages(text):
     text = re.sub(r'([\u4e00-\u9fff])\s+([a-zA-Z0-9])', r'\1\2', text)
     text = re.sub(r'([a-zA-Z0-9])\s+([\u4e00-\u9fff])', r'\1\2', text)
@@ -33,7 +140,10 @@ def remove_spaces_between_languages(text):
 
 def set_run_font(run, cn_font=CHINESE_FONT, en_font=WESTERN_FONT, size=None, bold=False, italic=False, color=COLOR_BLACK):
     run.font.name = en_font
-    run._element.rPr.rFonts.set(qn('w:eastAsia'), cn_font)
+    rFonts = run._element.rPr.rFonts
+    rFonts.set(qn('w:eastAsia'), cn_font)
+    # Chinese punctuation (e.g. “” ‘’) uses hAnsi font; set it to Chinese font
+    rFonts.set(qn('w:hAnsi'), cn_font)
     if size:
         run.font.size = size
     run.font.bold = bold
@@ -42,23 +152,35 @@ def set_run_font(run, cn_font=CHINESE_FONT, en_font=WESTERN_FONT, size=None, bol
 
 
 def add_text_to_paragraph(paragraph, text, size=None, bold=False, italic=False):
-    text = remove_spaces_between_languages(text)
-    parts = text.split('\n')
+    """添加文本到段落，自动拆分公式占位符"""
+    parts = MATH_PLACEHOLDER_RE.split(text)
     for i, part in enumerate(parts):
-        if i > 0:
-            paragraph.add_run().add_break()
-        if part:
-            run = paragraph.add_run(part)
+        if i % 2 == 1:
+            idx = int(part)
+            run = paragraph.add_run(f'{{{{MATH:{idx}}}}}')
             set_run_font(run, size=size, bold=bold, italic=italic)
+        else:
+            text_clean = remove_spaces_between_languages(part)
+            if text_clean:
+                run = paragraph.add_run(text_clean)
+                set_run_font(run, size=size, bold=bold, italic=italic)
 
 
 def process_inline_elements(paragraph, node, size=None, bold=False, italic=False):
     for child in node.children:
         if isinstance(child, NavigableString):
-            text = remove_spaces_between_languages(str(child))
-            if text:
-                run = paragraph.add_run(text)
-                set_run_font(run, size=size, bold=bold, italic=italic)
+            text = str(child)
+            parts = MATH_PLACEHOLDER_RE.split(text)
+            for i, part in enumerate(parts):
+                if i % 2 == 1:
+                    idx = int(part)
+                    run = paragraph.add_run(f'{{{{MATH:{idx}}}}}')
+                    set_run_font(run, size=size, bold=bold, italic=italic)
+                else:
+                    text_clean = remove_spaces_between_languages(part)
+                    if text_clean:
+                        run = paragraph.add_run(text_clean)
+                        set_run_font(run, size=size, bold=bold, italic=italic)
         elif child.name in ('strong', 'b'):
             process_inline_elements(paragraph, child, size=size, bold=True, italic=italic)
         elif child.name in ('em', 'i'):
@@ -81,12 +203,30 @@ def process_inline_elements(paragraph, node, size=None, bold=False, italic=False
             process_inline_elements(paragraph, child, size=size, bold=bold, italic=italic)
 
 
+# ========================= 主处理 =========================
 def convert_md_to_docx(md_path, docx_path):
+    global formulas, omml_cache
+    formulas.clear()
+    omml_cache.clear()
+
     with open(md_path, 'r', encoding='utf-8') as f:
         md_text = f.read()
 
+    # 去掉 SVG 图片引用
     md_text = re.sub(r'!\[([^\]]*)\]\(([^)]+)\)', r'[图：\1]', md_text)
 
+    # 提取公式
+    md_text = extract_formulas(md_text)
+
+    # 预生成所有 OMML
+    print(f"发现 {len(formulas)} 个公式，正在转换...")
+    for i in range(len(formulas)):
+        elem = get_omml(i)
+        if elem is None:
+            print(f"  警告: 公式 {i} 转换失败: {formulas[i]}")
+    print("公式转换完成")
+
+    # Markdown -> HTML
     html = markdown.markdown(md_text, extensions=['tables', 'fenced_code'])
     soup = BeautifulSoup(html, 'lxml')
 
@@ -192,12 +332,8 @@ def convert_md_to_docx(md_path, docx_path):
                 p.paragraph_format.space_after = Pt(3)
 
         elif tag == 'hr':
-            p = doc.add_paragraph()
-            p.paragraph_format.space_before = Pt(6)
-            p.paragraph_format.space_after = Pt(6)
-            run = p.add_run('—' * 20)
-            set_run_font(run, size=BODY_SIZE)
-            p.alignment = WD_ALIGN_PARAGRAPH.CENTER
+            # 跳过分割线
+            continue
 
         elif tag == 'pre':
             code = elem.find('code')
@@ -225,7 +361,11 @@ def convert_md_to_docx(md_path, docx_path):
                     p.paragraph_format.line_spacing_rule = WD_LINE_SPACING.ONE_POINT_FIVE
 
     doc.save(docx_path)
-    print(f"已保存: {docx_path}")
+    print(f"初步 docx 已保存: {docx_path}")
+
+    # 替换公式占位符为 OMML
+    replace_math_in_docx(docx_path)
+    print(f"公式已嵌入: {docx_path}")
 
 
 if __name__ == '__main__':
