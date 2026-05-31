@@ -1761,6 +1761,7 @@ def _plot_ablation_preproc(preproc_results, preproc_models):
     ax.axvline(x=0, color="black", linewidth=0.8)
     ax.set_xlabel("标准化带来的准确率变化 (百分点)")
     ax.set_title("标准化增益 (Δ)", fontsize=13, fontweight="bold")
+    ax.set_xlim(-8, 1)
     ax.grid(True, alpha=0.3, axis="x")
     for bar, d in zip(bars, deltas):
         ax.text(bar.get_width() + 0.3 if d > 0 else bar.get_width() - 0.3,
