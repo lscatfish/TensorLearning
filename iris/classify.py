@@ -479,8 +479,8 @@ def plot_decision_boundaries(X_train, y_train, X_test, y_test, X_train_scaled, X
     X2_all = np.vstack([X2_train, X2_test])
     y2_all = np.concatenate([y_train, y_test])
 
-    fig2, axes = plt.subplots(4, 2, figsize=(12, 24))
-    fig2.subplots_adjust(top=0.94, hspace=0.25)
+    fig2, axes = plt.subplots(2, 4, figsize=(24, 12))
+    fig2.subplots_adjust(top=0.92, hspace=0.35, wspace=0.25)
     fig2.suptitle("各模型决策边界对比 (花瓣长 vs 花瓣宽)", fontsize=16, fontweight="bold")
     axes = axes.flatten()
 
