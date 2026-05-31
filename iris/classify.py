@@ -407,22 +407,6 @@ def print_summary(results_mean, results_std, cv_results):
         bar = "=" * int(results_mean[name] * 50)
         print(f"  {i}. {name:　<18s}  {results_mean[name]:.4f} ± {results_std[name]:.4f}  {bar}")
 
-    print("\n  算法思考总结")
-    print("  MLP vs 传统方法:")
-    print("    - MLP 在调优后能达到与传统方法相当的准确率")
-    print("    - 小数据下 MLP 容易过拟合, 需配合早停 + L2 正则")
-    print("    - 深度比宽度更优? (小数据下不一定)")
-    print("    - GridSearch 在小数据上可能选出次优参数（见 §3.4）")
-    print()
-    print("  为什么集成方法表现稳定?")
-    print("    - 随机森林和梯度提升树通过集成降低方差/偏差")
-    print("    - Iris 数据小, 单模型可能不稳定, 集成后更鲁棒")
-    print()
-    print("  朴素贝叶斯假设的局限性:")
-    print("    - 花瓣长 vs 花瓣宽强相关, 违反独立假设")
-    print("    - 但特征区分度高, 仍然有竞争力")
-
-
 # 辅助绘图函数
 
 def plot_decision_boundary(ax, model, X_2d, y, title, h=0.02):
