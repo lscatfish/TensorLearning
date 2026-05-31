@@ -1105,9 +1105,9 @@ def plot_summary(results_mean, results_std, last_models, last_X_te, last_y_te, l
                    edgecolor="white", height=0.6, capsize=4)
     ax.set_title(f"各方法测试准确率对比 ({N_TRIALS} 次试验, mean±std)", fontsize=15, fontweight="bold")
     ax.set_xlabel("准确率 (%)")
-    ax.set_xlim(0, 108)
+    ax.set_xlim(0, 112)
     for bar, acc, err in zip(bars, method_accs, method_errs):
-        ax.text(bar.get_width() + 0.5, bar.get_y() + bar.get_height() / 2,
+        ax.text(bar.get_width() + err + 0.8, bar.get_y() + bar.get_height() / 2,
                 f"{acc:.1f}±{err:.1f}", va="center", fontsize=9, fontweight="bold")
     ax.grid(True, alpha=0.3, axis="x")
 
