@@ -176,7 +176,19 @@ def define_models():
 
 
 def train_and_evaluate(models, X_raw, y_labels, class_names):
-    """N_TRIALS 次试验，收集全部 trial 数据，保存 JSON，返回汇总+末次+全量数据。"""
+    """N_TRIALS 次重复试验：训练全部基准模型 + GridSearch MLP，汇总统计并保存 JSON。
+
+    流程：
+    1. 外层循环 N_TRIALS 次，每次重新划分训练/测试集（末次固定 random_state=42）
+    2. 标准化：对本轮 split 的训练集 fit，测试集 transform
+    3. 训练 11 个基准模型，记录准确率、预测、概率、F1
+    4. GridSearchCV 搜索 MLP 最优超参（架构 × alpha × 激活函数），记录最优结果
+    5. 保存本轮 trial 的全部记录到 all_trials
+    6. 循环结束后：计算 mean/std，打印排名，保存 JSON，返回汇总数据
+
+    返回: results_mean, results_std, last_models, last_y_pred_best, best_mlp_acc,
+          last_gs, last_best_mlp, last_X_te, last_y_te, all_trials_data
+    """
     print(f"\n2. 机器学习模型训练与评估 ({N_TRIALS} 次试验)")
 
     all_accs = {name: [] for name in models}
@@ -185,7 +197,9 @@ def train_and_evaluate(models, X_raw, y_labels, class_names):
     last_models = {}
     all_trials = []
 
+    # 外层循环：N_TRIALS 次独立划分与训练
     for trial in range(N_TRIALS):
+        # 末次 trial 固定 random_state，保证可复现；其余随机划分
         if trial == N_TRIALS - 1:
             X_tr, X_te, y_tr, y_te = train_test_split(
                 X_raw, y_labels, test_size=0.3, stratify=y_labels, random_state=42
@@ -203,7 +217,7 @@ def train_and_evaluate(models, X_raw, y_labels, class_names):
         trial_probs = {}
         trial_f1 = {}
 
-        # 本轮 trial：训练所有基准模型
+        # 步骤 A：训练全部 11 个基准模型
         for name, model in models.items():
             m = clone(model)
             m.fit(X_tr_s, y_tr)               # ← 模型训练：逻辑回归 / SVM / RF / KNN / MLPx4 / GBDT / DT / GNB
@@ -217,7 +231,7 @@ def train_and_evaluate(models, X_raw, y_labels, class_names):
             _, _, f1, _ = precision_recall_fscore_support(y_te, pred, zero_division=0)
             trial_f1[name] = f1.tolist()
 
-        # 本轮 trial：GridSearch 搜索 MLP 最优超参
+        # 步骤 B：GridSearchCV 搜索 MLP 最优超参
         param_grid = {
             "hidden_layer_sizes": [(16, 8), (32, 16, 8), (64, 32), (32, 8)],
             "alpha": [0.0001, 0.001, 0.01, 0.1],
@@ -244,6 +258,7 @@ def train_and_evaluate(models, X_raw, y_labels, class_names):
         last_X_te = X_te
         last_y_te = y_te
 
+        # 步骤 C：汇总本轮 trial 数据
         trial_record = {
             "true_labels": y_te.tolist(),
             "predictions": trial_preds,
@@ -254,6 +269,7 @@ def train_and_evaluate(models, X_raw, y_labels, class_names):
         }
         all_trials.append(trial_record)
 
+    # 步骤 D：跨 trial 汇总统计与持久化
     results_mean = {n: float(np.mean(all_accs[n])) for n in all_accs}
     results_std = {n: float(np.std(all_accs[n])) for n in all_accs}
 
@@ -276,7 +292,16 @@ def train_and_evaluate(models, X_raw, y_labels, class_names):
 
 
 def run_cross_validation(X_raw, y_labels):
-    """N_TRIALS 次 5折交叉验证对比，返回平均 CV 均值、标准差。"""
+    """N_TRIALS 次 5 折交叉验证对比，返回各模型平均 CV 均值与标准差。
+
+    流程：
+    1. 定义 6 个不参与 GridSearch 的模型（与主试验模型保持一致）
+    2. 外层循环 N_TRIALS 次：每次重新划分训练/测试，对训练集做标准化
+    3. 内层对每个模型执行 StratifiedKFold 5 折 CV，记录每折的 mean±std
+    4. 汇总：对 N_TRIALS 次的 CV 结果再取平均，降低随机划分的波动
+
+    注意：CV 只使用训练集（划分出的 70%），测试集不参与，避免信息泄漏。
+    """
     print(f"\n4. 5折交叉验证对比 ({N_TRIALS} 次试验)")
     skf = StratifiedKFold(n_splits=5, shuffle=True)
 
@@ -290,14 +315,17 @@ def run_cross_validation(X_raw, y_labels):
     }
     all_cv = {name: [] for name in cv_models}
 
+    # 外层循环：每次重新划分，观察 CV 稳定性
     for trial in range(N_TRIALS):
         X_tr, X_te, y_tr, y_te = train_test_split(X_raw, y_labels, test_size=0.3, stratify=y_labels)
         scaler = StandardScaler()
         X_tr_s = scaler.fit_transform(X_tr)
+        # 内层：对每个模型做 5 折 CV
         for name, model in cv_models.items():
             scores = cross_val_score(clone(model), X_tr_s, y_tr, cv=skf, scoring="accuracy")
             all_cv[name].append((scores.mean(), scores.std()))
 
+    # 汇总：对 N_TRIALS 次 CV 结果再平均
     cv_results = {}
     print("  模型               CV mean±std")
     for name in cv_models:
@@ -1340,7 +1368,16 @@ def benchmark_acc(models, Xtr, Xte, ytr, yte):
 
 
 def run_ablation_experiments(X_train, X_test, y_train, y_test, X_train_scaled, X_test_scaled, scaler):
-    """消融实验：特征消融、数据量消融、MLP架构消融、预处理消融。"""
+    """消融实验：通过控制变量法验证特征、数据量、MLP 架构、预处理的影响。
+
+    实验设计：
+    1. 特征消融：逐一移除 4 个特征，观察各模型准确率退化程度
+    2. 数据量消融：从 90% 逐步减少到 10% 训练数据，观察模型对样本量的敏感度
+    3. MLP 架构消融：固定 (16,8) 基准，分别扫描宽度、深度、正则强度、激活函数
+    4. 预处理消融：在标准化 vs 原始量纲数据上对比所有模型表现
+
+    注意：消融实验使用独立的 benchmark_abl 模型集合，与主试验模型互不影响。
+    """
     feature_names_abl = ["花萼长", "花萼宽", "花瓣长", "花瓣宽"]
 
     benchmark_abl = {
@@ -1842,7 +1879,19 @@ def _aggregate_cm(all_trials_data, model_key):
 
 
 def _run_all_plots(session, all_trials_data):
-    """给定完整 session 数据，运行全部可视化+消融（支持 session 中保存的消融结果）。"""
+    """根据 session 数据批量生成全部 14 张分析图 + 4 张消融图。
+
+    调用顺序：
+    1. 数据探索（1 张）
+    2. 决策边界（1 张）
+    3. 单模型深入分析（8 张：SVM / LR / MLP / RF / GBDT / DT / NB / KNN）
+    4. MLP 训练曲线（1 张）
+    5. 综合对比（2 张：准确率/F1/ROC + 混淆矩阵汇总）
+    6. CV 对比（1 张）
+    7. 消融实验（4 张，优先从 session 复用避免重算）
+
+    all_trials_data 不为 None 时，F1/CM/ROC 使用全部 trial 聚合数据而非仅末次。
+    """
     raw = session["raw"]
     split = session["split"]
     models = session["models"]
