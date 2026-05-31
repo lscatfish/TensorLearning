@@ -1180,9 +1180,9 @@ def plot_summary(results_mean, results_std, last_models, last_X_te, last_y_te, l
     plt.close(fig_top)
 
     # 图2：混淆矩阵汇总
-    fig_cm = plt.figure(figsize=(14, 20))
-    fig_cm.suptitle("Iris 鸢尾花分类 — 混淆矩阵汇总", fontsize=18, fontweight="bold", y=0.98)
-    gs_cm = GridSpec(4, 2, figure=fig_cm, hspace=0.35, wspace=0.35, top=0.93)
+    fig_cm = plt.figure(figsize=(24, 12))
+    fig_cm.suptitle("Iris 鸢尾花分类 — 混淆矩阵汇总", fontsize=18, fontweight="bold", y=0.95)
+    gs_cm = GridSpec(2, 4, figure=fig_cm, hspace=0.4, wspace=0.35, top=0.90)
 
     cm_labels = [n.replace("Iris-", "") for n in class_names]
     cm_entries = [
@@ -1196,8 +1196,8 @@ def plot_summary(results_mean, results_std, last_models, last_X_te, last_y_te, l
         ("朴素贝叶斯", "高斯朴素贝叶斯"),
     ]
     for idx, (disp_name, key) in enumerate(cm_entries):
-        row = idx // 2
-        col = idx % 2
+        row = idx // 4
+        col = idx % 4
         ax = fig_cm.add_subplot(gs_cm[row, col])
         if all_trials_data is not None:
             all_preds, all_true = [], []
