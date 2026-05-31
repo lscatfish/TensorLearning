@@ -116,19 +116,19 @@ def define_models():
     - 概率模型：高斯朴素贝叶斯
     """
     models = {
-        # ---------- 线性模型 ----------
+        # 线性模型
         "逻辑回归": LogisticRegression(
             multi_class="multinomial", solver="lbfgs", max_iter=1000, random_state=42
         ),
-        # ---------- 核方法 ----------
+        # 核方法
         "SVM (RBF核)": SVC(kernel="rbf", C=1.0, gamma="scale", probability=True, random_state=42),
-        # ---------- 集成树 ----------
+        # 集成树
         "随机森林": RandomForestClassifier(
             n_estimators=100, max_depth=5, random_state=42
         ),
-        # ---------- 惰性学习 ----------
+        # 惰性学习
         "KNN (k=5)": KNeighborsClassifier(n_neighbors=5),
-        # ---------- MLP 神经网络（4 种架构对比） ----------
+        # MLP 神经网络（4 种架构对比）
         # 基准架构 4→16→8→3，与 mt 框架保持一致
         "MLP (16,8)": MLPClassifier(
             hidden_layer_sizes=(16, 8),
@@ -165,7 +165,7 @@ def define_models():
             max_iter=1000,
             random_state=42,
         ),
-        # ---------- 其他传统方法 ----------
+        # 其他传统方法
         "梯度提升树": GradientBoostingClassifier(
             n_estimators=100, learning_rate=0.1, max_depth=3, random_state=42
         ),
@@ -203,7 +203,7 @@ def train_and_evaluate(models, X_raw, y_labels, class_names):
         trial_probs = {}
         trial_f1 = {}
 
-        # ---------- 本轮 trial：训练所有基准模型 ----------
+        # 本轮 trial：训练所有基准模型
         for name, model in models.items():
             m = clone(model)
             m.fit(X_tr_s, y_tr)               # ← 模型训练：逻辑回归 / SVM / RF / KNN / MLPx4 / GBDT / DT / GNB
@@ -217,7 +217,7 @@ def train_and_evaluate(models, X_raw, y_labels, class_names):
             _, _, f1, _ = precision_recall_fscore_support(y_te, pred, zero_division=0)
             trial_f1[name] = f1.tolist()
 
-        # ---------- 本轮 trial：GridSearch 搜索 MLP 最优超参 ----------
+        # 本轮 trial：GridSearch 搜索 MLP 最优超参
         param_grid = {
             "hidden_layer_sizes": [(16, 8), (32, 16, 8), (64, 32), (32, 8)],
             "alpha": [0.0001, 0.001, 0.01, 0.1],
@@ -398,7 +398,7 @@ def print_summary(results_mean, results_std, cv_results):
 # 辅助绘图函数
 
 def plot_decision_boundary(ax, model, X_2d, y, title, h=0.02):
-    """辅助：在 2D 平面上绘制决策边界。"""
+    """辅助函数：在 2D 平面上绘制决策边界。"""
     x_min, x_max = X_2d[:, 0].min() - 0.5, X_2d[:, 0].max() + 0.5
     y_min, y_max = X_2d[:, 1].min() - 0.5, X_2d[:, 1].max() + 0.5
     xx, yy = np.meshgrid(np.arange(x_min, x_max, h),
@@ -424,6 +424,7 @@ def plot_data_exploration(X_raw, y_labels, class_names, colors_pie):
 
     gs = GridSpec(3, 3, figure=fig1, hspace=0.4, wspace=0.35, top=0.91, height_ratios=[1, 1, 1.3])
 
+    # 子图：花瓣长 vs 花瓣宽散点图
     ax = fig1.add_subplot(gs[0, :])
     for i, cls in enumerate(class_names):
         mask = y_labels == i
@@ -435,6 +436,7 @@ def plot_data_exploration(X_raw, y_labels, class_names, colors_pie):
     ax.legend(framealpha=0.8, fontsize=10)
     ax.grid(True, alpha=0.3)
 
+    # 子图：类别分布饼图
     ax = fig1.add_subplot(gs[1, 0])
     counts = [np.sum(y_labels == i) for i in range(3)]
     wedges, texts, autotexts = ax.pie(counts, labels=class_names, autopct="%1.1f%%",
@@ -443,6 +445,7 @@ def plot_data_exploration(X_raw, y_labels, class_names, colors_pie):
         at.set_fontsize(10); at.set_fontweight("bold")
     ax.set_title("类别分布", fontsize=13, fontweight="bold")
 
+    # 子图：花萼长 vs 花萼宽散点图
     ax = fig1.add_subplot(gs[1, 1])
     for i, cls in enumerate(class_names):
         mask = y_labels == i
@@ -454,6 +457,7 @@ def plot_data_exploration(X_raw, y_labels, class_names, colors_pie):
     ax.legend(fontsize=7, framealpha=0.8)
     ax.grid(True, alpha=0.3)
 
+    # 子图：花瓣长 vs 花萼长散点图
     ax = fig1.add_subplot(gs[1, 2])
     for i, cls in enumerate(class_names):
         mask = y_labels == i
@@ -465,6 +469,7 @@ def plot_data_exploration(X_raw, y_labels, class_names, colors_pie):
     ax.legend(fontsize=7, framealpha=0.8)
     ax.grid(True, alpha=0.3)
 
+    # 子图：各类别四维特征箱线图
     ax = fig1.add_subplot(gs[2, :])
     box_data = [X_raw[y_labels == i, :] for i in range(3)]
     positions = []; labels = []
@@ -502,6 +507,7 @@ def plot_decision_boundaries(X_train, y_train, X_test, y_test, X_train_scaled, X
     fig2.suptitle("各模型决策边界对比 (花瓣长 vs 花瓣宽)", fontsize=16, fontweight="bold")
     axes = axes.flatten()
 
+    # 子图：训练数据在花瓣长/宽上的真实分布
     ax = axes[0]
     for i, cls in enumerate(class_names):
         mask_train = y_train == i
@@ -513,7 +519,7 @@ def plot_decision_boundaries(X_train, y_train, X_test, y_test, X_train_scaled, X
     ax.legend(fontsize=8)
     ax.grid(True, alpha=0.3)
 
-    # ---------- 为决策边界图重新训练各模型（仅使用花瓣长/宽 2 个特征） ----------
+    # 子图：7 个模型的决策边界对比（仅用花瓣长/宽 2D 特征重新训练）
     boundary_models = {
         "逻辑回归": LogisticRegression(multi_class="multinomial", solver="lbfgs", max_iter=1000, random_state=42),
         "SVM RBF": SVC(kernel="rbf", C=1.0, gamma="scale", random_state=42),
@@ -542,7 +548,7 @@ def plot_svm_analysis(X_train_scaled, y_train, X_test_scaled, y_test, models, cl
     fig_svm = plt.figure(figsize=(16, 10))
     fig_svm.suptitle("SVM (RBF核) — 参数影响分析", fontsize=16, fontweight="bold")
 
-    # ---------- SVM C 值扫描 ----------
+    # SVM C 值扫描
     C_values = [0.01, 0.1, 1, 10, 100]
     c_accs = []
     for c in C_values:
@@ -550,6 +556,7 @@ def plot_svm_analysis(X_train_scaled, y_train, X_test_scaled, y_test, models, cl
         sm.fit(X_train_scaled, y_train)  # ← SVM 训练：不同 C 值
         c_accs.append(accuracy_score(y_test, sm.predict(X_test_scaled)))
 
+    # 子图：SVM C 值对准确率的影响
     ax = fig_svm.add_subplot(2, 2, 1)
     ax.semilogx(C_values, c_accs, "o-", color="#FF6B6B", linewidth=2, markersize=8, markeredgecolor="white")
     ax.set_xlabel("C (正则化参数)")
@@ -573,6 +580,7 @@ def plot_svm_analysis(X_train_scaled, y_train, X_test_scaled, y_test, models, cl
         except Exception:
             pass
 
+    # 子图：SVM gamma 对准确率的影响
     ax = fig_svm.add_subplot(2, 2, 2)
     ax.plot(range(len(gamma_accs)), gamma_accs, "o-", color="#45B7D1",
             linewidth=2, markersize=10, markeredgecolor="white")
@@ -587,6 +595,7 @@ def plot_svm_analysis(X_train_scaled, y_train, X_test_scaled, y_test, models, cl
         ax.annotate(f"{a:.3f}", (i, a), textcoords="offset points",
                     xytext=(0, 8), ha="center", fontsize=9)
 
+    # 子图：SVM 混淆矩阵
     ax = fig_svm.add_subplot(2, 2, 3)
     if all_trials_data is not None:
         cm_svm, _ = _aggregate_cm(all_trials_data, "SVM (RBF核)")
@@ -597,6 +606,7 @@ def plot_svm_analysis(X_train_scaled, y_train, X_test_scaled, y_test, models, cl
         ax=ax, cmap="Blues", colorbar=False, text_kw={"fontsize": 13})
     ax.set_title("混淆矩阵", fontsize=13, fontweight="bold")
 
+    # 子图：SVM 支持向量统计信息
     ax = fig_svm.add_subplot(2, 2, 4)
     ax.axis("off")
     svm_model = models["SVM (RBF核)"]
@@ -620,6 +630,7 @@ def plot_logistic_regression(X_train_scaled, y_train, X_test_scaled, y_test, mod
     fig3.subplots_adjust(hspace=0.35)
     fig3.suptitle("逻辑回归 — 详细分析", fontsize=16, fontweight="bold")
 
+    # 子图：逻辑回归系数热力图
     ax = fig3.add_subplot(2, 3, (1, 2))
     coef = models["逻辑回归"].coef_
     im = ax.imshow(coef, cmap="RdBu_r", aspect="auto", vmin=-coef.max(), vmax=coef.max())
@@ -635,6 +646,7 @@ def plot_logistic_regression(X_train_scaled, y_train, X_test_scaled, y_test, mod
                     color="white" if abs(coef[i][j]) > 1 else "black")
     fig3.colorbar(im, ax=ax, shrink=0.8)
 
+    # 子图：逻辑回归平均特征重要性
     ax = fig3.add_subplot(2, 3, 3)
     coef_mean = np.abs(coef).mean(axis=0)
     colors_bar = plt.cm.RdYlBu(np.linspace(0.2, 0.8, 4))
@@ -648,6 +660,7 @@ def plot_logistic_regression(X_train_scaled, y_train, X_test_scaled, y_test, mod
                 f"{val:.2f}", ha="center", fontweight="bold")
     ax.grid(True, alpha=0.3, axis="y")
 
+    # 子图：逻辑回归混淆矩阵
     ax = fig3.add_subplot(2, 3, 4)
     if all_trials_data is not None:
         cm_lr, _ = _aggregate_cm(all_trials_data, "逻辑回归")
@@ -658,6 +671,7 @@ def plot_logistic_regression(X_train_scaled, y_train, X_test_scaled, y_test, mod
         ax=ax, cmap="Blues", colorbar=False, text_kw={"fontsize": 13})
     ax.set_title("混淆矩阵 (测试集)", fontsize=13, fontweight="bold")
 
+    # 子图：逻辑回归各类别 Precision / Recall / F1
     ax = fig3.add_subplot(2, 3, 5)
     lr_pred = models["逻辑回归"].predict(X_test_scaled)
     p, r, f1, _ = precision_recall_fscore_support(y_test, lr_pred, zero_division=0)
@@ -672,7 +686,7 @@ def plot_logistic_regression(X_train_scaled, y_train, X_test_scaled, y_test, mod
     ax.legend(fontsize=9, loc="lower right")
     ax.grid(True, alpha=0.3, axis="y")
 
-    # ---------- 逻辑回归 C 值扫描 ----------
+    # 逻辑回归 C 值扫描
     C_values_lr = [0.001, 0.01, 0.1, 1, 10, 100]
     c_lr_accs = []
     for c in C_values_lr:
@@ -680,6 +694,7 @@ def plot_logistic_regression(X_train_scaled, y_train, X_test_scaled, y_test, mod
         lr_c.fit(X_train_scaled, y_train)  # ← 逻辑回归训练：不同正则强度 C
         c_lr_accs.append(accuracy_score(y_test, lr_c.predict(X_test_scaled)))
 
+    # 子图：逻辑回归 C 值扫描曲线
     ax = fig3.add_subplot(2, 3, 6)
     ax.semilogx(C_values_lr, c_lr_accs, "o-", color="#45B7D1", linewidth=2, markersize=8, markeredgecolor="white")
     ax.set_xlabel("C (正则化强度)")
@@ -704,6 +719,7 @@ def plot_mlp_analysis(results, y_pred_best_mlp, best_mlp_acc, grid_search,
     fig4 = plt.figure(figsize=(18, 12))
     fig4.suptitle("MLP (多层感知器) — 深入分析", fontsize=16, fontweight="bold")
 
+    # 子图：不同 MLP 架构测试准确率对比
     ax = fig4.add_subplot(2, 3, 1)
     arch_names = ["MLP (16,8)", "MLP (32,16,8)", "MLP (64,32)", "MLP (GridSearch最佳)"]
     arch_accs = [results.get(n, 0) for n in arch_names]
@@ -720,8 +736,9 @@ def plot_mlp_analysis(results, y_pred_best_mlp, best_mlp_acc, grid_search,
                     xytext=(0, -12), ha="center", fontsize=10, fontweight="bold")
     ax.grid(True, alpha=0.3)
 
+    # 子图：MLP 训练损失随迭代变化曲线
     ax = fig4.add_subplot(2, 3, 2)
-    # ---------- MLP 损失曲线：重新训练用于绘图 ----------
+    # MLP 损失曲线：重新训练用于绘图
     mlp_for_plot = MLPClassifier(
         hidden_layer_sizes=(32, 16, 8), activation="relu", solver="adam",
         alpha=0.001, max_iter=1000, random_state=42
@@ -737,6 +754,7 @@ def plot_mlp_analysis(results, y_pred_best_mlp, best_mlp_acc, grid_search,
     ax.legend()
     ax.grid(True, alpha=0.3)
 
+    # 子图：MLP (GridSearch最佳) 混淆矩阵
     ax = fig4.add_subplot(2, 3, 3)
     if all_trials_data is not None:
         cm_mlp, best_mlp_acc = _aggregate_cm(all_trials_data, "MLP (GridSearch最佳)")
@@ -747,6 +765,7 @@ def plot_mlp_analysis(results, y_pred_best_mlp, best_mlp_acc, grid_search,
         ax=ax, cmap="Blues", colorbar=False, text_kw={"fontsize": 13})
     ax.set_title(f"MLP (GridSearch最佳) 混淆矩阵\nacc={best_mlp_acc:.2%}", fontsize=12, fontweight="bold")
 
+    # 子图：GridSearch 不同架构随 alpha 变化的 CV 准确率
     ax = fig4.add_subplot(2, 3, 4)
     cv_results_grid = grid_search.cv_results_
     mean_scores = cv_results_grid["mean_test_score"]
@@ -771,8 +790,9 @@ def plot_mlp_analysis(results, y_pred_best_mlp, best_mlp_acc, grid_search,
                         textcoords="offset points", xytext=(0, 8),
                         ha="center", fontsize=7, fontweight="bold")
 
+    # 子图：MLP L2 正则强度 alpha 对准确率的影响
     ax = fig4.add_subplot(2, 3, 5)
-    # ---------- MLP 正则强度 alpha 扫描 ----------
+    # MLP 正则强度 alpha 扫描
     alpha_values = [0.0001, 0.001, 0.01, 0.1, 1.0]
     alpha_scores = []
     for a in alpha_values:
@@ -792,8 +812,9 @@ def plot_mlp_analysis(results, y_pred_best_mlp, best_mlp_acc, grid_search,
         ax.annotate(f"{s:.3f}", (str(a), s), textcoords="offset points",
                     xytext=(0, 8), ha="center", fontsize=9)
 
+    # 子图：MLP 不同激活函数准确率对比
     ax = fig4.add_subplot(2, 3, 6)
-    # ---------- MLP 激活函数对比 ----------
+    # MLP 激活函数对比
     activations = ["relu", "tanh", "logistic"]
     act_scores = []
     for act in activations:
@@ -829,6 +850,7 @@ def plot_random_forest(X_train_scaled, y_train, X_test_scaled, y_test, models, c
     fig5.subplots_adjust(hspace=0.3)
     fig5.suptitle("随机森林 — 详细分析", fontsize=16, fontweight="bold")
 
+    # 子图：随机森林特征重要性排序
     ax = fig5.add_subplot(2, 2, 1)
     rf = models["随机森林"]
     importances_rf = rf.feature_importances_
@@ -845,8 +867,9 @@ def plot_random_forest(X_train_scaled, y_train, X_test_scaled, y_test, models, c
                 f"{val:.4f}", ha="center", fontweight="bold")
     ax.grid(True, alpha=0.3, axis="y")
 
+    # 子图：随机森林估计器数量对准确率的影响
     ax = fig5.add_subplot(2, 2, 2)
-    # ---------- 随机森林：估计器数量扫描 ----------
+    # 随机森林：估计器数量扫描
     n_estimators_range = [1, 5, 10, 20, 50, 100, 200]
     rf_accs = []
     for n in n_estimators_range:
@@ -861,6 +884,7 @@ def plot_random_forest(X_train_scaled, y_train, X_test_scaled, y_test, models, c
     ax.set_title("估计器数量影响", fontsize=13, fontweight="bold")
     ax.grid(True, alpha=0.3)
 
+    # 子图：随机森林混淆矩阵
     ax = fig5.add_subplot(2, 2, 3)
     if all_trials_data is not None:
         cm_rf, _ = _aggregate_cm(all_trials_data, "随机森林")
@@ -871,8 +895,9 @@ def plot_random_forest(X_train_scaled, y_train, X_test_scaled, y_test, models, c
         ax=ax, cmap="Blues", colorbar=False, text_kw={"fontsize": 13})
     ax.set_title("混淆矩阵", fontsize=13, fontweight="bold")
 
+    # 子图：随机森林树深度对准确率的影响
     ax = fig5.add_subplot(2, 2, 4)
-    # ---------- 随机森林：树深度扫描 ----------
+    # 随机森林：树深度扫描
     rf_depths = range(1, 11)
     rf_depth_accs = []
     for d in rf_depths:
@@ -897,6 +922,7 @@ def plot_gradient_boosting(X_train_scaled, y_train, X_test_scaled, y_test, model
     fig_gbdt = plt.figure(figsize=(16, 10))
     fig_gbdt.suptitle("梯度提升树 — 详细分析", fontsize=16, fontweight="bold")
 
+    # 子图：梯度提升树特征重要性排序
     ax = fig_gbdt.add_subplot(2, 2, 1)
     gbdt = models["梯度提升树"]
     importances_gbdt = gbdt.feature_importances_
@@ -913,8 +939,9 @@ def plot_gradient_boosting(X_train_scaled, y_train, X_test_scaled, y_test, model
                 f"{val:.4f}", ha="center", fontweight="bold")
     ax.grid(True, alpha=0.3, axis="y")
 
+    # 子图：梯度提升树估计器数量对准确率的影响
     ax = fig_gbdt.add_subplot(2, 2, 2)
-    # ---------- 梯度提升树：估计器数量扫描 ----------
+    # 梯度提升树：估计器数量扫描
     n_estimators_range = [1, 5, 10, 20, 50, 100, 200]
     gbdt_accs = []
     for n in n_estimators_range:
@@ -929,6 +956,7 @@ def plot_gradient_boosting(X_train_scaled, y_train, X_test_scaled, y_test, model
     ax.set_title("估计器数量影响", fontsize=13, fontweight="bold")
     ax.grid(True, alpha=0.3)
 
+    # 子图：梯度提升树混淆矩阵
     ax = fig_gbdt.add_subplot(2, 2, 3)
     if all_trials_data is not None:
         cm_gbdt, _ = _aggregate_cm(all_trials_data, "梯度提升树")
@@ -939,8 +967,9 @@ def plot_gradient_boosting(X_train_scaled, y_train, X_test_scaled, y_test, model
         ax=ax, cmap="Blues", colorbar=False, text_kw={"fontsize": 13})
     ax.set_title("混淆矩阵", fontsize=13, fontweight="bold")
 
+    # 子图：梯度提升树学习率对准确率的影响
     ax = fig_gbdt.add_subplot(2, 2, 4)
-    # ---------- 梯度提升树：学习率扫描 ----------
+    # 梯度提升树：学习率扫描
     lr_values = [0.01, 0.05, 0.1, 0.2, 0.5, 1.0]
     lr_accs = []
     for lr in lr_values:
@@ -968,8 +997,9 @@ def plot_decision_tree(X_train_scaled, y_train, X_test_scaled, y_test, models, c
     fig6 = plt.figure(figsize=(16, 10))
     fig6.suptitle("决策树 — 详细分析", fontsize=16, fontweight="bold")
 
+    # 子图：决策树结构可视化 (max_depth=3)
     ax = fig6.add_subplot(2, 2, (1, 2))
-    # ---------- 决策树：训练用于可视化 ----------
+    # 决策树：训练用于可视化
     dt_viz = DecisionTreeClassifier(max_depth=3, random_state=42)
     dt_viz.fit(X_train_scaled, y_train)  # ← 决策树训练：用于 plot_tree 可视化
     plt.rcParams["axes.unicode_minus"] = False
@@ -977,10 +1007,11 @@ def plot_decision_tree(X_train_scaled, y_train, X_test_scaled, y_test, models, c
               filled=True, rounded=True, ax=ax, fontsize=9)
     ax.set_title("决策树 (max_depth=3)", fontsize=13, fontweight="bold")
 
+    # 子图：决策树深度对训练/测试准确率的影响（过拟合观察）
     ax = fig6.add_subplot(2, 2, 3)
     depths = range(1, 11)
     depth_accs_train, depth_accs_test = [], []
-    # ---------- 决策树：深度扫描（观察过拟合） ----------
+    # 决策树：深度扫描（观察过拟合）
     for d in depths:
         dt_d = DecisionTreeClassifier(max_depth=d, random_state=42)
         dt_d.fit(X_train_scaled, y_train)  # ← 决策树训练：不同 max_depth
@@ -995,6 +1026,7 @@ def plot_decision_tree(X_train_scaled, y_train, X_test_scaled, y_test, models, c
     ax.legend()
     ax.grid(True, alpha=0.3)
 
+    # 子图：决策树混淆矩阵
     ax = fig6.add_subplot(2, 2, 4)
     if all_trials_data is not None:
         cm_dt, _ = _aggregate_cm(all_trials_data, "决策树")
@@ -1016,6 +1048,7 @@ def plot_naive_bayes(X_test_scaled, y_test, models, class_names, feature_names, 
     fig_nb = plt.figure(figsize=(14, 6))
     fig_nb.suptitle("高斯朴素贝叶斯 — 详细分析", fontsize=16, fontweight="bold")
 
+    # 子图：高斯朴素贝叶斯各类别特征均值±标准差
     ax = fig_nb.add_subplot(1, 2, 1)
     gnb = models["高斯朴素贝叶斯"]
     theta = gnb.theta_
@@ -1031,6 +1064,7 @@ def plot_naive_bayes(X_test_scaled, y_test, models, class_names, feature_names, 
     ax.legend()
     ax.grid(True, alpha=0.3)
 
+    # 子图：高斯朴素贝叶斯混淆矩阵
     ax = fig_nb.add_subplot(1, 2, 2)
     if all_trials_data is not None:
         cm_gnb, _ = _aggregate_cm(all_trials_data, "高斯朴素贝叶斯")
@@ -1052,8 +1086,9 @@ def plot_knn(X_train_scaled, y_train, X_test_scaled, y_test, models, class_names
     fig_knn = plt.figure(figsize=(14, 6))
     fig_knn.suptitle("KNN — 详细分析", fontsize=16, fontweight="bold")
 
+    # 子图：KNN k 值对准确率的影响
     ax = fig_knn.add_subplot(1, 2, 1)
-    # ---------- KNN：k 值扫描 ----------
+    # KNN：k 值扫描
     k_values = range(1, 31)
     k_accs = []
     for k in k_values:
@@ -1069,6 +1104,7 @@ def plot_knn(X_train_scaled, y_train, X_test_scaled, y_test, models, class_names
     ax.legend()
     ax.grid(True, alpha=0.3)
 
+    # 子图：KNN (k=5) 混淆矩阵
     ax = fig_knn.add_subplot(1, 2, 2)
     if all_trials_data is not None:
         cm_knn, _ = _aggregate_cm(all_trials_data, "KNN (k=5)")
@@ -1090,8 +1126,9 @@ def plot_mlp_training_curves(X_train_scaled, y_train, X_test_scaled, y_test):
     fig_mlp_curves = plt.figure(figsize=(10, 6))
     fig_mlp_curves.suptitle("MLP — 不同架构训练损失对比", fontsize=16, fontweight="bold")
 
+    # 子图：MLP 三种架构训练损失对比
     ax = fig_mlp_curves.add_subplot(1, 1, 1)
-    # ---------- MLP 多架构：训练并对比损失曲线 ----------
+    # MLP 多架构：训练并对比损失曲线
     mlp_configs = [
         ("MLP (16,8)", (16, 8), 0.001),
         ("MLP (32,16,8)", (32, 16, 8), 0.001),
@@ -1125,6 +1162,7 @@ def plot_summary(results_mean, results_std, last_models, last_X_te, last_y_te, l
     fig_top.suptitle("Iris 鸢尾花分类 — 综合对比", fontsize=18, fontweight="bold", y=0.98)
     gs_top = GridSpec(3, 1, figure=fig_top, hspace=0.35, wspace=0.35, top=0.93)
 
+    # 子图：各方法测试准确率横向条形图 (mean±std)
     ax = fig_top.add_subplot(gs_top[0, 0])
     method_names = list(results_mean.keys())
     method_accs = [results_mean[n] * 100 for n in method_names]
@@ -1140,7 +1178,7 @@ def plot_summary(results_mean, results_std, last_models, last_X_te, last_y_te, l
                 f"{acc:.1f}±{err:.1f}", va="center", fontsize=9, fontweight="bold")
     ax.grid(True, alpha=0.3, axis="x")
 
-    # F1 — 多 trial 平均
+    # 子图：各方法各类别 F1-Score 对比
     ax = fig_top.add_subplot(gs_top[1, 0])
     x = np.arange(3); w = 0.1
     for idx, name in enumerate(method_names):
@@ -1162,7 +1200,7 @@ def plot_summary(results_mean, results_std, last_models, last_X_te, last_y_te, l
     ax.legend(fontsize=6, ncol=2)
     ax.grid(True, alpha=0.3, axis="y")
 
-    # ROC — 多 trial 拼接
+    # 子图：多模型 ROC 曲线对比 (OvR)
     ax = fig_top.add_subplot(gs_top[2, 0])
     roc_entries = [
         ("逻辑回归", "逻辑回归"),
@@ -1208,7 +1246,7 @@ def plot_summary(results_mean, results_std, last_models, last_X_te, last_y_te, l
     fig_top.savefig("iris/output/12_summary.svg", bbox_inches="tight")
     plt.close(fig_top)
 
-    # 图2：混淆矩阵汇总
+    # 子图：8 个模型的混淆矩阵汇总 (2×4 网格)
     fig_cm = plt.figure(figsize=(24, 12))
     fig_cm.suptitle("Iris 鸢尾花分类 — 混淆矩阵汇总", fontsize=18, fontweight="bold", y=0.95)
     gs_cm = GridSpec(2, 4, figure=fig_cm, hspace=0.4, wspace=0.35, top=0.90)
@@ -1253,6 +1291,7 @@ def plot_cv_comparison(cv_results):
     fig_cv = plt.figure(figsize=(12, 8))
     fig_cv.suptitle(f"各模型 5 折交叉验证对比 ({N_TRIALS} 次试验)", fontsize=16, fontweight="bold")
 
+    # 子图：各模型 5 折交叉验证准确率横向条形图
     ax = fig_cv.add_subplot(1, 1, 1)
     cv_names = list(cv_results.keys())
     cv_means = [cv_results[n][0] * 100 for n in cv_names]
@@ -1319,7 +1358,7 @@ def run_ablation_experiments(X_train, X_test, y_train, y_test, X_train_scaled, X
 
     colors_abl = dict(zip(benchmark_abl.keys(), plt.cm.tab10(np.linspace(0, 1, len(benchmark_abl)))))
 
-    # ---------- 消融实验 1: 特征消融（逐一移除特征后重新训练所有模型） ----------
+    # 消融实验 1: 特征消融（逐一移除特征后重新训练所有模型）
     print("实验 1/4: 特征消融 — 逐一移除特征")
     feat_abl_results = {}
     for name in benchmark_abl:
@@ -1342,7 +1381,7 @@ def run_ablation_experiments(X_train, X_test, y_train, y_test, X_train_scaled, X
 
     print(f"  基准（全特征）— {', '.join(f'{n}: {base_feat[n]:.3f}' for n in base_feat)}")
 
-    # ---------- 消融实验 2: 数据量消融（逐步减少训练数据后重新训练） ----------
+    # 消融实验 2: 数据量消融（逐步减少训练数据后重新训练）
     print("\n实验 2/4: 数据量消融 — 逐步减少训练数据")
     train_ratios = [0.9, 0.7, 0.5, 0.3, 0.1]
     data_abl_results = {name: [] for name in benchmark_abl}
@@ -1361,7 +1400,7 @@ def run_ablation_experiments(X_train, X_test, y_train, y_test, X_train_scaled, X
 
         print(f"  训练比例 {ratio:.0%} ({len(Xtr_d)}条) — {', '.join(f'{n}: {accs[n]:.3f}' for n in accs)}")
 
-    # ---------- 消融实验 3: MLP 架构消融（宽度 / 深度 / 正则 / 激活函数） ----------
+    # 消融实验 3: MLP 架构消融（宽度 / 深度 / 正则 / 激活函数）
     print("\n实验 3/4: MLP 架构消融 — 逐层裁剪")
     arch_configs = [
         ("宽度扫描", [
@@ -1438,7 +1477,7 @@ def run_ablation_experiments(X_train, X_test, y_train, y_test, X_train_scaled, X
         print(f"    {act}: {acc:.4f}")
     arch_results["act"] = (act_names, act_accs)
 
-    # ---------- 消融实验 4: 预处理消融（标准化 vs 未标准化） ----------
+    # 消融实验 4: 预处理消融（标准化 vs 未标准化）
     print("\n实验 4/4: 预处理消融 — 标准化 on/off")
     preproc_models = {
         "逻辑回归": LogisticRegression(multi_class="multinomial", solver="lbfgs", max_iter=1000, random_state=42),
@@ -1521,6 +1560,7 @@ def _plot_ablation_feature(feat_abl_results, base_feat, benchmark_abl, feature_n
 
     degradation = acc_matrix[:, 4:5] - acc_matrix[:, :4]
 
+    # 子图：逐一移除特征后的绝对准确率热力图
     ax1 = fig1.add_subplot(1, 2, 1)
     im1 = ax1.imshow(acc_matrix, cmap="RdYlGn", aspect="auto", vmin=0.6, vmax=1.0)
     ax1.set_xticks(range(5))
@@ -1535,6 +1575,7 @@ def _plot_ablation_feature(feat_abl_results, base_feat, benchmark_abl, feature_n
                     color="white" if acc_matrix[i, j] < 0.85 else "black")
     fig1.colorbar(im1, ax=ax1, shrink=0.8)
 
+    # 子图：移除特征导致的准确率退化量热力图
     ax2 = fig1.add_subplot(1, 2, 2)
     im2 = ax2.imshow(degradation, cmap="Reds", aspect="auto", vmin=0, vmax=0.3)
     ax2.set_xticks(range(4))
@@ -1563,6 +1604,7 @@ def _plot_ablation_data(data_abl_results, train_ratios, benchmark_abl, colors_ab
     fig2.suptitle("消融实验 2: 数据量消融 — 训练比例对各模型影响",
                   fontsize=16, fontweight="bold")
 
+    # 子图：各模型在不同训练数据比例下的准确率曲线
     ax = fig2.add_subplot(1, 1, 1)
     ratios_pct = [f"{r:.0%}" for r in train_ratios]
     for name in benchmark_abl:
@@ -1596,6 +1638,7 @@ def _plot_ablation_mlp_arch(width_names, width_accs, depth_names, depth_accs, re
     fig3.suptitle("消融实验 3: MLP 架构消融 — 宽度 / 深度 / 正则 / 激活函数",
                   fontsize=16, fontweight="bold")
 
+    # 子图：MLP 单隐藏层宽度（神经元数）对准确率的影响
     ax = fig3.add_subplot(2, 2, 1)
     ax.plot(range(len(width_names)), [a * 100 for a in width_accs], "o-", color="#45B7D1",
             linewidth=2, markersize=10, markeredgecolor="white")
@@ -1609,6 +1652,7 @@ def _plot_ablation_mlp_arch(width_names, width_accs, depth_names, depth_accs, re
                     xytext=(0, 8), ha="center", fontsize=9, fontweight="bold")
     ax.grid(True, alpha=0.3)
 
+    # 子图：MLP 隐藏层深度对准确率的影响
     ax = fig3.add_subplot(2, 2, 2)
     ax.plot(range(len(depth_names)), [a * 100 for a in depth_accs], "o-", color="#FF6B6B",
             linewidth=2, markersize=10, markeredgecolor="white")
@@ -1622,6 +1666,7 @@ def _plot_ablation_mlp_arch(width_names, width_accs, depth_names, depth_accs, re
                     xytext=(0, 8), ha="center", fontsize=9, fontweight="bold")
     ax.grid(True, alpha=0.3)
 
+    # 子图：MLP L2 正则强度 alpha 对准确率的影响
     ax = fig3.add_subplot(2, 2, 3)
     ax.plot(range(len(reg_names)), [a * 100 for a in reg_accs], "o-", color="#4ECDC4",
             linewidth=2, markersize=10, markeredgecolor="white")
@@ -1635,6 +1680,7 @@ def _plot_ablation_mlp_arch(width_names, width_accs, depth_names, depth_accs, re
                     xytext=(0, 8), ha="center", fontsize=9, fontweight="bold")
     ax.grid(True, alpha=0.3)
 
+    # 子图：MLP 不同激活函数对准确率的影响
     ax = fig3.add_subplot(2, 2, 4)
     ax.plot(range(len(act_names)), [a * 100 for a in act_accs], "o-", color="#98D8C8",
             linewidth=2, markersize=10, markeredgecolor="white")
@@ -1661,6 +1707,7 @@ def _plot_ablation_preproc(preproc_results, preproc_models):
     fig4.suptitle("消融实验 4: 预处理消融 — 标准化 vs 未标准化",
                   fontsize=16, fontweight="bold")
 
+    # 子图：标准化 vs 未标准化各模型准确率对比
     ax = fig4.add_subplot(1, 2, 1)
     p_names = list(preproc_models.keys())
     x = np.arange(len(p_names))
@@ -1685,6 +1732,7 @@ def _plot_ablation_preproc(preproc_results, preproc_models):
         ax.text(bar.get_x() + bar.get_width() / 2, h + 0.5,
                 f"{h:.1f}", ha="center", fontsize=7, fontweight="bold")
 
+    # 子图：标准化带来的准确率增益（Δ）
     ax = fig4.add_subplot(1, 2, 2)
     deltas = [preproc_results["标准化"][n] - preproc_results["未标准化"][n] for n in p_names]
     colors_delta = ["#4ECDC4" if d > 0 else "#FF6B6B" for d in deltas]
@@ -1878,22 +1926,22 @@ def main():
         _run_all_plots(session, json_data)
         return
 
-    # ---------- 步骤 1: 数据加载与预处理 ----------
+    # 步骤 1: 数据加载与预处理
     X_raw, y_raw, _, _, _, _, _, _, _, class_names, y_labels = load_and_preprocess_data()
 
-    # ---------- 步骤 2: 模型定义与 N_TRIALS 轮训练评估 ----------
+    # 步骤 2: 模型定义与 N_TRIALS 轮训练评估
     models = define_models()
     results_mean, results_std, last_models, last_y_pred_best, best_mlp_acc, last_gs, last_best_mlp, last_X_te, last_y_te, all_trials_data = train_and_evaluate(
         models, X_raw, y_labels, class_names
     )
 
-    # ---------- 步骤 3: 多轮交叉验证 ----------
+    # 步骤 3: 多轮交叉验证
     cv_results = run_cross_validation(X_raw, y_labels)
 
-    # ---------- 步骤 4: 文字汇总 ----------
+    # 步骤 4: 文字汇总
     print_summary(results_mean, results_std, cv_results)
 
-    # ---------- 步骤 5: 准备末次 trial 的可视化数据 ----------
+    # 步骤 5: 准备末次 trial 的可视化数据
     # （与 train_and_evaluate 内部的末次 split 无关，独立生成固定 random_state=42 的 split）
     X_tr_last, X_te_last, y_tr_last, y_te_last = train_test_split(
         X_raw, y_labels, test_size=0.3, stratify=y_labels, random_state=42
@@ -1902,7 +1950,7 @@ def main():
     X_tr_s_last = scaler_last.fit_transform(X_tr_last)
     X_te_s_last = scaler_last.transform(X_te_last)
 
-    # ---------- 步骤 6: 保存完整 session ----------
+    # 步骤 6: 保存完整 session
     session = {
         "raw": {"X_raw": X_raw, "y_labels": y_labels, "class_names": class_names},
         "split": {
