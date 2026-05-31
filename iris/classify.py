@@ -104,17 +104,32 @@ def load_and_preprocess_data():
 
 
 def define_models():
-    """定义所有基准模型。"""
+    """定义所有基准模型。
+
+    共 11 个模型：
+    - 线性模型：逻辑回归
+    - 核方法：SVM (RBF)
+    - 集成树：随机森林、梯度提升树
+    - 惰性学习：KNN
+    - 神经网络：4 组 MLP（对比深度/宽度/轻量）
+    - 单树：决策树
+    - 概率模型：高斯朴素贝叶斯
+    """
     models = {
+        # ---------- 线性模型 ----------
         "逻辑回归": LogisticRegression(
             multi_class="multinomial", solver="lbfgs", max_iter=1000, random_state=42
         ),
+        # ---------- 核方法 ----------
         "SVM (RBF核)": SVC(kernel="rbf", C=1.0, gamma="scale", probability=True, random_state=42),
+        # ---------- 集成树 ----------
         "随机森林": RandomForestClassifier(
             n_estimators=100, max_depth=5, random_state=42
         ),
+        # ---------- 惰性学习 ----------
         "KNN (k=5)": KNeighborsClassifier(n_neighbors=5),
-        # MLP  baseline：4→16→8→3，和 mt 框架保持一致
+        # ---------- MLP 神经网络（4 种架构对比） ----------
+        # 基准架构 4→16→8→3，与 mt 框架保持一致
         "MLP (16,8)": MLPClassifier(
             hidden_layer_sizes=(16, 8),
             activation="relu",
@@ -123,7 +138,7 @@ def define_models():
             max_iter=1000,
             random_state=42,
         ),
-        # MLP 加深一层，试试 32→16→8 的效果
+        # 加深一层：32→16→8，验证深度收益
         "MLP (32,16,8)": MLPClassifier(
             hidden_layer_sizes=(32, 16, 8),
             activation="relu",
@@ -132,7 +147,7 @@ def define_models():
             max_iter=1000,
             random_state=42,
         ),
-        # MLP 两层宽网络：64→32，看宽度是不是比深度更重要
+        # 加宽两层：64→32，验证宽度收益
         "MLP (64,32)": MLPClassifier(
             hidden_layer_sizes=(64, 32),
             activation="relu",
@@ -141,7 +156,7 @@ def define_models():
             max_iter=1000,
             random_state=42,
         ),
-        # MLP 轻量版：32→8，减少参数量试试
+        # 轻量版：32→8，减少参数量
         "MLP (32,8)": MLPClassifier(
             hidden_layer_sizes=(32, 8),
             activation="relu",
@@ -150,6 +165,7 @@ def define_models():
             max_iter=1000,
             random_state=42,
         ),
+        # ---------- 其他传统方法 ----------
         "梯度提升树": GradientBoostingClassifier(
             n_estimators=100, learning_rate=0.1, max_depth=3, random_state=42
         ),
@@ -187,9 +203,10 @@ def train_and_evaluate(models, X_raw, y_labels, class_names):
         trial_probs = {}
         trial_f1 = {}
 
+        # ---------- 本轮 trial：训练所有基准模型 ----------
         for name, model in models.items():
             m = clone(model)
-            m.fit(X_tr_s, y_tr)
+            m.fit(X_tr_s, y_tr)               # ← 模型训练：逻辑回归 / SVM / RF / KNN / MLPx4 / GBDT / DT / GNB
             pred = m.predict(X_te_s)
             acc = accuracy_score(y_te, pred)
             all_accs[name].append(acc)
@@ -200,6 +217,7 @@ def train_and_evaluate(models, X_raw, y_labels, class_names):
             _, _, f1, _ = precision_recall_fscore_support(y_te, pred, zero_division=0)
             trial_f1[name] = f1.tolist()
 
+        # ---------- 本轮 trial：GridSearch 搜索 MLP 最优超参 ----------
         param_grid = {
             "hidden_layer_sizes": [(16, 8), (32, 16, 8), (64, 32), (32, 8)],
             "alpha": [0.0001, 0.001, 0.01, 0.1],
@@ -209,7 +227,7 @@ def train_and_evaluate(models, X_raw, y_labels, class_names):
             MLPClassifier(solver="adam", max_iter=1000),
             param_grid, cv=5, scoring="accuracy", n_jobs=4,
         )
-        gs.fit(X_tr_s, y_tr)
+        gs.fit(X_tr_s, y_tr)  # ← GridSearch 训练：遍历 hidden_layer_sizes × alpha × activation 组合
         gs_pred = gs.best_estimator_.predict(X_te_s)
         gs_acc = accuracy_score(y_te, gs_pred)
         all_accs["MLP (GridSearch最佳)"].append(gs_acc)
@@ -495,6 +513,7 @@ def plot_decision_boundaries(X_train, y_train, X_test, y_test, X_train_scaled, X
     ax.legend(fontsize=8)
     ax.grid(True, alpha=0.3)
 
+    # ---------- 为决策边界图重新训练各模型（仅使用花瓣长/宽 2 个特征） ----------
     boundary_models = {
         "逻辑回归": LogisticRegression(multi_class="multinomial", solver="lbfgs", max_iter=1000, random_state=42),
         "SVM RBF": SVC(kernel="rbf", C=1.0, gamma="scale", random_state=42),
@@ -508,7 +527,7 @@ def plot_decision_boundaries(X_train, y_train, X_test, y_test, X_train_scaled, X
 
     for idx, (name, model) in enumerate(boundary_models.items()):
         ax = axes[idx + 1]
-        model.fit(X2_train, y_train)
+        model.fit(X2_train, y_train)  # ← 决策边界专用训练（2D 特征）
         acc = accuracy_score(y_test, model.predict(X2_test))
         plot_decision_boundary(ax, model, X2_all, y2_all, f"{name} (Acc={acc:.2%})")
 
@@ -523,11 +542,12 @@ def plot_svm_analysis(X_train_scaled, y_train, X_test_scaled, y_test, models, cl
     fig_svm = plt.figure(figsize=(16, 10))
     fig_svm.suptitle("SVM (RBF核) — 参数影响分析", fontsize=16, fontweight="bold")
 
+    # ---------- SVM C 值扫描 ----------
     C_values = [0.01, 0.1, 1, 10, 100]
     c_accs = []
     for c in C_values:
         sm = SVC(kernel="rbf", C=c, gamma="scale", random_state=42)
-        sm.fit(X_train_scaled, y_train)
+        sm.fit(X_train_scaled, y_train)  # ← SVM 训练：不同 C 值
         c_accs.append(accuracy_score(y_test, sm.predict(X_test_scaled)))
 
     ax = fig_svm.add_subplot(2, 2, 1)
@@ -547,7 +567,7 @@ def plot_svm_analysis(X_train_scaled, y_train, X_test_scaled, y_test, models, cl
     for g in gamma_values:
         try:
             sm = SVC(kernel="rbf", C=1.0, gamma=g, random_state=42)
-            sm.fit(X_train_scaled, y_train)
+            sm.fit(X_train_scaled, y_train)  # ← SVM 训练：不同 gamma 值
             gamma_accs.append(accuracy_score(y_test, sm.predict(X_test_scaled)))
             g_labels.append(str(g))
         except Exception:
@@ -652,11 +672,12 @@ def plot_logistic_regression(X_train_scaled, y_train, X_test_scaled, y_test, mod
     ax.legend(fontsize=9, loc="lower right")
     ax.grid(True, alpha=0.3, axis="y")
 
+    # ---------- 逻辑回归 C 值扫描 ----------
     C_values_lr = [0.001, 0.01, 0.1, 1, 10, 100]
     c_lr_accs = []
     for c in C_values_lr:
         lr_c = LogisticRegression(multi_class="multinomial", solver="lbfgs", C=c, max_iter=1000, random_state=42)
-        lr_c.fit(X_train_scaled, y_train)
+        lr_c.fit(X_train_scaled, y_train)  # ← 逻辑回归训练：不同正则强度 C
         c_lr_accs.append(accuracy_score(y_test, lr_c.predict(X_test_scaled)))
 
     ax = fig3.add_subplot(2, 3, 6)
@@ -700,11 +721,12 @@ def plot_mlp_analysis(results, y_pred_best_mlp, best_mlp_acc, grid_search,
     ax.grid(True, alpha=0.3)
 
     ax = fig4.add_subplot(2, 3, 2)
+    # ---------- MLP 损失曲线：重新训练用于绘图 ----------
     mlp_for_plot = MLPClassifier(
         hidden_layer_sizes=(32, 16, 8), activation="relu", solver="adam",
         alpha=0.001, max_iter=1000, random_state=42
     )
-    mlp_for_plot.fit(X_train_scaled, y_train)
+    mlp_for_plot.fit(X_train_scaled, y_train)  # ← MLP 训练：获取 loss_curve_
     ax.plot(mlp_for_plot.loss_curve_, label="训练损失", color="#FF6B6B", linewidth=2)
     if hasattr(mlp_for_plot, "validation_scores_") and mlp_for_plot.validation_scores_:
         val_scores = [1 - s for s in mlp_for_plot.validation_scores_]
@@ -733,10 +755,7 @@ def plot_mlp_analysis(results, y_pred_best_mlp, best_mlp_acc, grid_search,
         len(grid_search.param_grid["hidden_layer_sizes"]), len(grid_search.param_grid["alpha"])
     )
     colors_arch = plt.cm.viridis(np.linspace(0.2, 0.8, len(grid_search.param_grid["hidden_layer_sizes"])))
-    for i, arch in enumerate(grid_search.param_grid["hidden_layer_sizes"]):
-        ax.plot(range(len(grid_search.param_grid["alpha"])), score_matrix[i], "o-",
-                color=colors_arch[i], linewidth=2, markersize=8,
-                markeredgecolor="white", label=f"{arch}")
+    # GridSearch 结果已在 train_and_evaluate 中通过 gs.fit() 训练，此处直接复用 cv_results_
     ax.set_xticks(range(len(grid_search.param_grid["alpha"])))
     ax.set_xticklabels([f"α={a}" for a in grid_search.param_grid["alpha"]])
     ax.set_xlabel("alpha")
@@ -753,6 +772,7 @@ def plot_mlp_analysis(results, y_pred_best_mlp, best_mlp_acc, grid_search,
                         ha="center", fontsize=7, fontweight="bold")
 
     ax = fig4.add_subplot(2, 3, 5)
+    # ---------- MLP 正则强度 alpha 扫描 ----------
     alpha_values = [0.0001, 0.001, 0.01, 0.1, 1.0]
     alpha_scores = []
     for a in alpha_values:
@@ -760,7 +780,7 @@ def plot_mlp_analysis(results, y_pred_best_mlp, best_mlp_acc, grid_search,
             hidden_layer_sizes=(16, 8), activation="relu", solver="adam",
             alpha=a, max_iter=1000, random_state=42
         )
-        mlp_a.fit(X_train_scaled, y_train)
+        mlp_a.fit(X_train_scaled, y_train)  # ← MLP 训练：不同 L2 正则强度 alpha
         alpha_scores.append(accuracy_score(y_test, mlp_a.predict(X_test_scaled)))
     ax.plot([str(a) for a in alpha_values], alpha_scores, "o-", color="#4ECDC4",
             linewidth=2, markersize=10, markeredgecolor="white")
@@ -773,6 +793,7 @@ def plot_mlp_analysis(results, y_pred_best_mlp, best_mlp_acc, grid_search,
                     xytext=(0, 8), ha="center", fontsize=9)
 
     ax = fig4.add_subplot(2, 3, 6)
+    # ---------- MLP 激活函数对比 ----------
     activations = ["relu", "tanh", "logistic"]
     act_scores = []
     for act in activations:
@@ -780,7 +801,7 @@ def plot_mlp_analysis(results, y_pred_best_mlp, best_mlp_acc, grid_search,
             hidden_layer_sizes=(16, 8), activation=act, solver="adam",
             alpha=0.001, max_iter=1000, random_state=42
         )
-        mlp_act.fit(X_train_scaled, y_train)
+        mlp_act.fit(X_train_scaled, y_train)  # ← MLP 训练：不同激活函数
         act_scores.append(accuracy_score(y_test, mlp_act.predict(X_test_scaled)))
     ax.plot(range(len(activations)), [s * 100 for s in act_scores], "o-", color="#4ECDC4",
             linewidth=2, markersize=10, markeredgecolor="white")
@@ -825,11 +846,12 @@ def plot_random_forest(X_train_scaled, y_train, X_test_scaled, y_test, models, c
     ax.grid(True, alpha=0.3, axis="y")
 
     ax = fig5.add_subplot(2, 2, 2)
+    # ---------- 随机森林：估计器数量扫描 ----------
     n_estimators_range = [1, 5, 10, 20, 50, 100, 200]
     rf_accs = []
     for n in n_estimators_range:
         rf_n = RandomForestClassifier(n_estimators=n, max_depth=5, random_state=42)
-        rf_n.fit(X_train_scaled, y_train)
+        rf_n.fit(X_train_scaled, y_train)  # ← 随机森林训练：不同 n_estimators
         rf_accs.append(accuracy_score(y_test, rf_n.predict(X_test_scaled)))
     ax.plot(n_estimators_range, rf_accs, "o-", color="#FF6B6B", linewidth=2,
             markersize=8, markeredgecolor="white")
@@ -850,11 +872,12 @@ def plot_random_forest(X_train_scaled, y_train, X_test_scaled, y_test, models, c
     ax.set_title("混淆矩阵", fontsize=13, fontweight="bold")
 
     ax = fig5.add_subplot(2, 2, 4)
+    # ---------- 随机森林：树深度扫描 ----------
     rf_depths = range(1, 11)
     rf_depth_accs = []
     for d in rf_depths:
         rf_d = RandomForestClassifier(n_estimators=100, max_depth=d, random_state=42)
-        rf_d.fit(X_train_scaled, y_train)
+        rf_d.fit(X_train_scaled, y_train)  # ← 随机森林训练：不同 max_depth
         rf_depth_accs.append(accuracy_score(y_test, rf_d.predict(X_test_scaled)))
     ax.plot(list(rf_depths), rf_depth_accs, "o-", color="#45B7D1", linewidth=2,
             markersize=8, markeredgecolor="white")
@@ -891,11 +914,12 @@ def plot_gradient_boosting(X_train_scaled, y_train, X_test_scaled, y_test, model
     ax.grid(True, alpha=0.3, axis="y")
 
     ax = fig_gbdt.add_subplot(2, 2, 2)
+    # ---------- 梯度提升树：估计器数量扫描 ----------
     n_estimators_range = [1, 5, 10, 20, 50, 100, 200]
     gbdt_accs = []
     for n in n_estimators_range:
         gbdt_n = GradientBoostingClassifier(n_estimators=n, learning_rate=0.1, max_depth=2, random_state=42)
-        gbdt_n.fit(X_train_scaled, y_train)
+        gbdt_n.fit(X_train_scaled, y_train)  # ← 梯度提升树训练：不同 n_estimators
         gbdt_accs.append(accuracy_score(y_test, gbdt_n.predict(X_test_scaled)))
     ax.plot(n_estimators_range, gbdt_accs, "s-", color="#4ECDC4", linewidth=2,
             markersize=8, markeredgecolor="white")
@@ -916,11 +940,12 @@ def plot_gradient_boosting(X_train_scaled, y_train, X_test_scaled, y_test, model
     ax.set_title("混淆矩阵", fontsize=13, fontweight="bold")
 
     ax = fig_gbdt.add_subplot(2, 2, 4)
+    # ---------- 梯度提升树：学习率扫描 ----------
     lr_values = [0.01, 0.05, 0.1, 0.2, 0.5, 1.0]
     lr_accs = []
     for lr in lr_values:
         gbdt_lr = GradientBoostingClassifier(n_estimators=100, learning_rate=lr, max_depth=2, random_state=42)
-        gbdt_lr.fit(X_train_scaled, y_train)
+        gbdt_lr.fit(X_train_scaled, y_train)  # ← 梯度提升树训练：不同 learning_rate
         lr_accs.append(accuracy_score(y_test, gbdt_lr.predict(X_test_scaled)))
     ax.plot([str(lr) for lr in lr_values], lr_accs, "o-", color="#4ECDC4",
             linewidth=2, markersize=10, markeredgecolor="white")
@@ -944,8 +969,9 @@ def plot_decision_tree(X_train_scaled, y_train, X_test_scaled, y_test, models, c
     fig6.suptitle("决策树 — 详细分析", fontsize=16, fontweight="bold")
 
     ax = fig6.add_subplot(2, 2, (1, 2))
+    # ---------- 决策树：训练用于可视化 ----------
     dt_viz = DecisionTreeClassifier(max_depth=3, random_state=42)
-    dt_viz.fit(X_train_scaled, y_train)
+    dt_viz.fit(X_train_scaled, y_train)  # ← 决策树训练：用于 plot_tree 可视化
     plt.rcParams["axes.unicode_minus"] = False
     plot_tree(dt_viz, feature_names=feature_names, class_names=list(class_names),
               filled=True, rounded=True, ax=ax, fontsize=9)
@@ -954,9 +980,10 @@ def plot_decision_tree(X_train_scaled, y_train, X_test_scaled, y_test, models, c
     ax = fig6.add_subplot(2, 2, 3)
     depths = range(1, 11)
     depth_accs_train, depth_accs_test = [], []
+    # ---------- 决策树：深度扫描（观察过拟合） ----------
     for d in depths:
         dt_d = DecisionTreeClassifier(max_depth=d, random_state=42)
-        dt_d.fit(X_train_scaled, y_train)
+        dt_d.fit(X_train_scaled, y_train)  # ← 决策树训练：不同 max_depth
         depth_accs_train.append(accuracy_score(y_train, dt_d.predict(X_train_scaled)))
         depth_accs_test.append(accuracy_score(y_test, dt_d.predict(X_test_scaled)))
     ax.plot(list(depths), depth_accs_train, "o-", color="#FF6B6B", label="训练准确率")
@@ -1026,11 +1053,12 @@ def plot_knn(X_train_scaled, y_train, X_test_scaled, y_test, models, class_names
     fig_knn.suptitle("KNN — 详细分析", fontsize=16, fontweight="bold")
 
     ax = fig_knn.add_subplot(1, 2, 1)
+    # ---------- KNN：k 值扫描 ----------
     k_values = range(1, 31)
     k_accs = []
     for k in k_values:
         knn = KNeighborsClassifier(n_neighbors=k)
-        knn.fit(X_train_scaled, y_train)
+        knn.fit(X_train_scaled, y_train)  # ← KNN 训练（惰性学习：仅存储样本）
         k_accs.append(accuracy_score(y_test, knn.predict(X_test_scaled)))
     ax.plot(list(k_values), k_accs, "o-", color="#45B7D1", linewidth=2, markersize=5, markeredgecolor="white")
     best_k = k_values[np.argmax(k_accs)]
@@ -1063,6 +1091,7 @@ def plot_mlp_training_curves(X_train_scaled, y_train, X_test_scaled, y_test):
     fig_mlp_curves.suptitle("MLP — 不同架构训练损失对比", fontsize=16, fontweight="bold")
 
     ax = fig_mlp_curves.add_subplot(1, 1, 1)
+    # ---------- MLP 多架构：训练并对比损失曲线 ----------
     mlp_configs = [
         ("MLP (16,8)", (16, 8), 0.001),
         ("MLP (32,16,8)", (32, 16, 8), 0.001),
@@ -1071,7 +1100,7 @@ def plot_mlp_training_curves(X_train_scaled, y_train, X_test_scaled, y_test):
     for label, layers, alpha in mlp_configs:
         m = MLPClassifier(hidden_layer_sizes=layers, activation="relu", solver="adam",
                           alpha=alpha, max_iter=1000, random_state=42)
-        m.fit(X_train_scaled, y_train)
+        m.fit(X_train_scaled, y_train)  # ← MLP 训练：不同架构，获取 loss_curve_
         acc = accuracy_score(y_test, m.predict(X_test_scaled))
         ax.plot(m.loss_curve_, label=f"{label} (Acc={acc:.2%})", linewidth=1.5)
     ax.set_xlabel("迭代次数")
@@ -1266,7 +1295,7 @@ def benchmark_acc(models, Xtr, Xte, ytr, yte):
     accs = {}
     for name, model in models.items():
         m = model
-        m.fit(Xtr, ytr)
+        m.fit(Xtr, ytr)  # ← 消融实验中的模型训练
         accs[name] = accuracy_score(yte, m.predict(Xte))
     return accs
 
@@ -1290,7 +1319,7 @@ def run_ablation_experiments(X_train, X_test, y_train, y_test, X_train_scaled, X
 
     colors_abl = dict(zip(benchmark_abl.keys(), plt.cm.tab10(np.linspace(0, 1, len(benchmark_abl)))))
 
-    # 实验 1: 特征消融
+    # ---------- 消融实验 1: 特征消融（逐一移除特征后重新训练所有模型） ----------
     print("实验 1/4: 特征消融 — 逐一移除特征")
     feat_abl_results = {}
     for name in benchmark_abl:
@@ -1313,7 +1342,7 @@ def run_ablation_experiments(X_train, X_test, y_train, y_test, X_train_scaled, X
 
     print(f"  基准（全特征）— {', '.join(f'{n}: {base_feat[n]:.3f}' for n in base_feat)}")
 
-    # 实验 2: 数据量消融
+    # ---------- 消融实验 2: 数据量消融（逐步减少训练数据后重新训练） ----------
     print("\n实验 2/4: 数据量消融 — 逐步减少训练数据")
     train_ratios = [0.9, 0.7, 0.5, 0.3, 0.1]
     data_abl_results = {name: [] for name in benchmark_abl}
@@ -1332,7 +1361,7 @@ def run_ablation_experiments(X_train, X_test, y_train, y_test, X_train_scaled, X
 
         print(f"  训练比例 {ratio:.0%} ({len(Xtr_d)}条) — {', '.join(f'{n}: {accs[n]:.3f}' for n in accs)}")
 
-    # 实验 3: MLP 架构消融
+    # ---------- 消融实验 3: MLP 架构消融（宽度 / 深度 / 正则 / 激活函数） ----------
     print("\n实验 3/4: MLP 架构消融 — 逐层裁剪")
     arch_configs = [
         ("宽度扫描", [
@@ -1366,7 +1395,7 @@ def run_ablation_experiments(X_train, X_test, y_train, y_test, X_train_scaled, X
     for label, layers in arch_configs[0][1]:
         m = MLPClassifier(hidden_layer_sizes=layers, activation="relu",
                            solver="adam", alpha=0.001, max_iter=1000, random_state=42)
-        m.fit(X_train_scaled, y_train)
+        m.fit(X_train_scaled, y_train)  # ← MLP 训练：单隐藏层宽度扫描
         acc = accuracy_score(y_test, m.predict(X_test_scaled))
         width_names.append(label)
         width_accs.append(acc)
@@ -1378,7 +1407,7 @@ def run_ablation_experiments(X_train, X_test, y_train, y_test, X_train_scaled, X
     for label, layers in arch_configs[1][1]:
         m = MLPClassifier(hidden_layer_sizes=layers, activation="relu",
                            solver="adam", alpha=0.001, max_iter=1000, random_state=42)
-        m.fit(X_train_scaled, y_train)
+        m.fit(X_train_scaled, y_train)  # ← MLP 训练：隐藏层数深度扫描
         acc = accuracy_score(y_test, m.predict(X_test_scaled))
         depth_names.append(label)
         depth_accs.append(acc)
@@ -1390,7 +1419,7 @@ def run_ablation_experiments(X_train, X_test, y_train, y_test, X_train_scaled, X
     for label, alpha in arch_configs[2][1]:
         m = MLPClassifier(hidden_layer_sizes=(16, 8), activation="relu",
                            solver="adam", alpha=alpha, max_iter=1000, random_state=42)
-        m.fit(X_train_scaled, y_train)
+        m.fit(X_train_scaled, y_train)  # ← MLP 训练：L2 正则 alpha 扫描
         acc = accuracy_score(y_test, m.predict(X_test_scaled))
         reg_names.append(label)
         reg_accs.append(acc)
@@ -1402,14 +1431,14 @@ def run_ablation_experiments(X_train, X_test, y_train, y_test, X_train_scaled, X
     for act in arch_configs[3][1]:
         m = MLPClassifier(hidden_layer_sizes=(16, 8), activation=act,
                            solver="adam", alpha=0.001, max_iter=1000, random_state=42)
-        m.fit(X_train_scaled, y_train)
+        m.fit(X_train_scaled, y_train)  # ← MLP 训练：激活函数对比
         acc = accuracy_score(y_test, m.predict(X_test_scaled))
         act_names.append(act)
         act_accs.append(acc)
         print(f"    {act}: {acc:.4f}")
     arch_results["act"] = (act_names, act_accs)
 
-    # 实验 4: 预处理消融
+    # ---------- 消融实验 4: 预处理消融（标准化 vs 未标准化） ----------
     print("\n实验 4/4: 预处理消融 — 标准化 on/off")
     preproc_models = {
         "逻辑回归": LogisticRegression(multi_class="multinomial", solver="lbfgs", max_iter=1000, random_state=42),
@@ -1432,11 +1461,11 @@ def run_ablation_experiments(X_train, X_test, y_train, y_test, X_train_scaled, X
 
     for name, model in preproc_models.items():
         m1 = model
-        m1.fit(X_tr_scaled, y_train)
+        m1.fit(X_tr_scaled, y_train)  # ← 训练：标准化数据
         preproc_results["标准化"][name] = accuracy_score(y_test, m1.predict(X_te_scaled))
 
         m2 = model
-        m2.fit(X_train, y_train)
+        m2.fit(X_train, y_train)  # ← 训练：未标准化（原始量纲）数据
         preproc_results["未标准化"][name] = accuracy_score(y_test, m2.predict(X_test))
 
     print("  标准化 vs 未标准化准确率:")
@@ -1822,7 +1851,16 @@ def _run_all_plots(session, all_trials_data):
 
 
 def main():
-    """主流程：训练（默认）或仅分析（--analyze）。"""
+    """主流程：训练（默认）或仅分析（--analyze）。
+
+    默认流程：
+    1. 加载并预处理 Iris 数据
+    2. 定义 11 个基准模型，执行 N_TRIALS 轮训练与评估
+    3. 执行 5 折交叉验证
+    4. 输出文字汇总
+    5. 生成 14 张可视化图表 + 4 组消融实验
+    6. 保存完整 session（含模型、数据、结果）
+    """
     import argparse
     parser = argparse.ArgumentParser()
     parser.add_argument("--analyze", action="store_true",
@@ -1840,22 +1878,23 @@ def main():
         _run_all_plots(session, json_data)
         return
 
-    # 1. 数据加载与预处理
+    # ---------- 步骤 1: 数据加载与预处理 ----------
     X_raw, y_raw, _, _, _, _, _, _, _, class_names, y_labels = load_and_preprocess_data()
 
-    # 2. 模型定义与多轮训练
+    # ---------- 步骤 2: 模型定义与 N_TRIALS 轮训练评估 ----------
     models = define_models()
     results_mean, results_std, last_models, last_y_pred_best, best_mlp_acc, last_gs, last_best_mlp, last_X_te, last_y_te, all_trials_data = train_and_evaluate(
         models, X_raw, y_labels, class_names
     )
 
-    # 3. 多轮交叉验证
+    # ---------- 步骤 3: 多轮交叉验证 ----------
     cv_results = run_cross_validation(X_raw, y_labels)
 
-    # 4. 文字汇总
+    # ---------- 步骤 4: 文字汇总 ----------
     print_summary(results_mean, results_std, cv_results)
 
-    # 5. 准备末次 trial 的可视化数据（与 train_and_evaluate 内部的末次 split 无关，独立生成）
+    # ---------- 步骤 5: 准备末次 trial 的可视化数据 ----------
+    # （与 train_and_evaluate 内部的末次 split 无关，独立生成固定 random_state=42 的 split）
     X_tr_last, X_te_last, y_tr_last, y_te_last = train_test_split(
         X_raw, y_labels, test_size=0.3, stratify=y_labels, random_state=42
     )
@@ -1863,7 +1902,7 @@ def main():
     X_tr_s_last = scaler_last.fit_transform(X_tr_last)
     X_te_s_last = scaler_last.transform(X_te_last)
 
-    # 6. 保存完整 session
+    # ---------- 步骤 6: 保存完整 session ----------
     session = {
         "raw": {"X_raw": X_raw, "y_labels": y_labels, "class_names": class_names},
         "split": {
