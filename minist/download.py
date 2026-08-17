@@ -1,58 +1,47 @@
 #!/usr/bin/env python3
-# -*- encoding utf-8 -*-
+# -*- encoding:utf-8 -*-
+"""
+MNIST 下载与图片导出工具
 
-'''
-@File: save_mnist_to_jpg.py
-@Date: 2024-08-23
-@Author: KRISNAT
-@Version: 0.0.0
-@Email: ****
-@Copyright: (C)Copyright 2024, KRISNAT
-@Desc:
-    1. 通过 torchvision.datasets.MNIST 下载、解压和读取 MNIST 数据集；
-    2. 使用 PIL.Image.save 将 MNIST 数据集中的灰度图片以 JPEG 格式保存。
-'''
+功能：
+    1. 通过 torchvision.datasets.MNIST 下载 / 加载 MNIST 数据集（训练集 60K、测试集 10K）；
+    2. 将数据集中的灰度图片以 JPEG 格式批量导出到 mnist_jpg/ 目录；
+    3. 文件名格式：{training|test}_{序号}_{标签}.jpg，供 model.py 按文件名解析标签。
 
-import sys, os
-sys.path.insert(0, os.getcwd())
+依赖：torchvision、Pillow、tqdm
+"""
 
+import os
+
+from PIL import Image
 from torchvision.datasets import MNIST
-import PIL
 from tqdm import tqdm
 
+
+def _save_split(dataset, save_dir: str, prefix: str) -> None:
+    """把某个划分（训练/测试）的全部图片保存为 JPG。
+
+    :param dataset: torchvision 数据集对象
+    :param save_dir: 图片输出目录
+    :param prefix: 文件名前缀，training / test
+    """
+    with tqdm(total=len(dataset), ncols=150, desc=f"saving {prefix}") as bar:
+        for idx, (img, label) in enumerate(dataset):
+            # PIL Image 对象直接以 JPG 格式落盘
+            filepath = os.path.join(save_dir, f"{prefix}_{idx}_{label}.jpg")
+            img.save(filepath)
+            bar.update(1)
+
+
 if __name__ == "__main__":
-    # 图片保存路径
-    root = 'mnist_jpg'
-    if not os.path.exists(root):
-        os.makedirs(root)
+    # 图片保存路径（相对当前工作目录）
+    save_dir = "mnist_jpg"
+    os.makedirs(save_dir, exist_ok=True)
 
-    # 从网络上下载或从本地加载MNIST数据集
-    # 训练集60K、测试集10K
-    # torchvision.datasets.MNIST接口下载的数据一组元组
-    # 每个元组的结构是: (PIL.Image.Image image model=L size=28x28, 标签数字 int)
-    training_dataset = MNIST(
-        root='mnist',
-        train=True,
-        download=True,
-    )
-    test_dataset = MNIST(
-        root='mnist',
-        train=False,
-        download=True,
-    )
+    # 下载 / 加载 MNIST 数据（原始数据缓存到 mnist/ 目录）
+    train_dataset = MNIST(root="mnist", train=True, download=True)
+    test_dataset = MNIST(root="mnist", train=False, download=True)
 
-    # 保存训练集图片
-    with tqdm(total=len(training_dataset), ncols=150) as pro_bar:
-        for idx, (X, y) in enumerate(training_dataset):
-            f = root + "/" + "training_" + str(idx) + \
-                "_" + str(training_dataset[idx][1] )+ ".jpg"  # 文件路径
-            training_dataset[idx][0].save(f)
-            pro_bar.update(n=1)
-
-    # 保存测试集图片
-    with tqdm(total=len(test_dataset), ncols=150) as pro_bar:
-        for idx, (X, y) in enumerate(test_dataset):
-            f = root + "/" + "test_" + str(idx) + \
-                "_" + str(test_dataset[idx][1] )+ ".jpg"  # 文件路径
-            test_dataset[idx][0].save(f)
-            pro_bar.update(n=1)
+    # 导出训练集与测试集图片
+    _save_split(train_dataset, save_dir, prefix="training")
+    _save_split(test_dataset, save_dir, prefix="test")
