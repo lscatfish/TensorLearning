@@ -64,3 +64,13 @@ TensorLearning/
 ## main1.py — 西瓜分类
 
 西瓜书（周志华《机器学习》）中的二分类示例，使用 `mt` 框架构建 2 层神经网络，对 17 条西瓜数据进行好瓜/坏瓜分类。
+
+## 数据来源
+
+本仓库不含数据集文件（数据均在运行时下载/读取），各数据集来源声明如下：
+
+| 数据集 | 来源 | 说明 |
+|--------|------|------|
+| MNIST 手写数字 | [Yann LeCun 等创建](http://yann.lecun.com/exdb/mnist/)，源自 NIST SD-3 / SD-7 | 无正式许可文本，惯例为自由使用并署名引用 |
+| Iris 鸢尾花 | [UCI Machine Learning Repository](https://archive.ics.uci.edu/ml/datasets/iris) | 公共数据集 |
+| 西瓜数据集 | 周志华《机器学习》（西瓜书） | 教材示例数据，仅用于学习演示 |
